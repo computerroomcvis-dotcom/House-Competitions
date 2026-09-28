@@ -1,0 +1,6 @@
+{
+  "name": "School House Points Tracker",
+  "description": "Comprehensive school house points system tracking merits, demerits, class and student awards across grades TP to G5, with teacher and admin portals, live leaderboards, and sports week events.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

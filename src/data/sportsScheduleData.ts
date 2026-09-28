@@ -1,0 +1,213 @@
+import { EventScheduleItem, LiveScoreTickerItem, SportsActivityEvent } from '../types';
+
+export const DEFAULT_EVENT_SCHEDULE: EventScheduleItem[] = [
+  {
+    id: 'sched-1',
+    time: '09:00 AM',
+    event_name: 'Inter-House Sprint Relays',
+    category: 'Athletics',
+    location: 'Main Track',
+    status: 'Completed',
+  },
+  {
+    id: 'sched-2',
+    time: '10:30 AM',
+    event_name: 'Tug of War Championship',
+    category: 'Strength',
+    location: 'Central Field',
+    status: 'Live Now',
+  },
+  {
+    id: 'sched-3',
+    time: '01:30 PM',
+    event_name: 'House Trivia & Strategy Bowl',
+    category: 'Academics',
+    location: 'Auditorium',
+    status: 'Upcoming',
+  },
+];
+
+export const DEFAULT_LIVE_SCORE_TICKER: LiveScoreTickerItem[] = [
+  {
+    id: 'ticker-1',
+    timestamp: '10:42 AM',
+    game_title: 'Tug of War',
+    student_name: 'Poomrapee W.',
+    house: 'Stormchasers',
+    points_added: 15,
+    reason: 'Won Round 2 Pull',
+  },
+  {
+    id: 'ticker-2',
+    timestamp: '09:45 AM',
+    game_title: 'Inter-House Sprint Relays',
+    student_name: 'Seerat Agarwal',
+    house: 'Mountainhearts',
+    points_added: 20,
+    reason: 'Anchor Leg 100m Dash Victory',
+  },
+  {
+    id: 'ticker-3',
+    timestamp: '09:18 AM',
+    game_title: 'Sprint Relays Heat 1',
+    student_name: 'Nirin Ruangburop',
+    house: 'Earthshakers',
+    points_added: 10,
+    reason: 'Flawless Baton Transition',
+  },
+];
+
+export const FEATURED_SPORTS_GAMES: SportsActivityEvent[] = [
+  {
+    id: 'game-01',
+    title: 'Tug of War Championship',
+    description:
+      'Premier inter-house strength and endurance championship. Four house teams pull in high-stakes elimination rounds on the Central Field with Anchor and Lead roles.',
+    category: 'Strength',
+    date: '2026-02-23',
+    time: '10:30 AM',
+    location: 'Central Field',
+    venueCode: 'CF',
+    gameType: 'STANDARD',
+    groupCategory: 'Inter-House Championship',
+    targetPlayersCount: 4,
+    lessThanMinAllowed: false,
+    scoringSystem: '1st: 75 pts | 2nd: 50 pts | 3rd: 30 pts | 4th: 20 pts',
+    scoringBreakdown: {
+      firstPlace: 75,
+      secondPlace: 50,
+      thirdPlace: 30,
+      fourthPlace: 20,
+      bonusNotes: 'Won Round 2 Pull: +15 bonus points awarded to Stormchasers anchor',
+    },
+    rules: [
+      'Each team fields anchor, lead, and team members positioned along designated marks.',
+      'Pull begins strictly on facilitator whistle; hands must remain on rope without wrapping around wrists.',
+      'First house to pull the center ribbon 3 meters past victory marker wins the pull.',
+      'Best of 3 pulls determines final championship placements.',
+    ],
+    imageUrl:
+      'https://images.unsplash.com/photo-1517649763962-0c623266ddc0?auto=format&fit=crop&w=1200&q=80',
+    isActive: true, // "In Progress"
+    scores: [
+      { houseId: 'house-stormchasers', points: 75, placement: 1 },
+      { houseId: 'house-earthshakers', points: 50, placement: 2 },
+      { houseId: 'house-mountainhearts', points: 30, placement: 3 },
+      { houseId: 'house-thunderhooves', points: 20, placement: 4 },
+    ],
+    participatingStudentsWithRoles: [
+      {
+        student_name: 'Poomrapee W.',
+        house: 'Stormchasers',
+        role: 'Anchor',
+        studentId: 'stu-sc-pk4-1',
+      },
+      {
+        student_name: 'Thichanan L.',
+        house: 'Earthshakers',
+        role: 'Lead',
+        studentId: 'stu-es-pk3-2',
+      },
+      {
+        student_name: 'Linlada P.',
+        house: 'Mountainhearts',
+        role: 'Member',
+        studentId: 'stu-mh-pk4-3',
+      },
+      {
+        student_name: 'Kannisa T.',
+        house: 'Thunderhooves',
+        role: 'Member',
+        studentId: 'stu-th-pk3-3',
+      },
+    ],
+    participatingStudentIds: [
+      'stu-sc-pk4-1',
+      'stu-es-pk3-2',
+      'stu-mh-pk4-3',
+      'stu-th-pk3-3',
+    ],
+    notes: 'Live now on Central Field! Round 2 pull clinched by Stormchasers anchor.',
+  },
+  {
+    id: 'game-sprint-relays',
+    title: 'Inter-House Sprint Relays',
+    description:
+      'Baton sprint relays over 4x50m and 4x100m courses on the Main Track. Evaluates pure acceleration, pacing, and clean baton exchange techniques.',
+    category: 'Athletics',
+    date: '2026-02-23',
+    time: '09:00 AM',
+    location: 'Main Track',
+    venueCode: 'D3-A',
+    gameType: 'STANDARD',
+    groupCategory: 'Early Years & Primary Relays',
+    targetPlayersCount: 4,
+    lessThanMinAllowed: false,
+    scoringSystem: '1st: 60 pts | 2nd: 45 pts | 3rd: 30 pts | 4th: 15 pts',
+    scoringBreakdown: {
+      firstPlace: 60,
+      secondPlace: 45,
+      thirdPlace: 30,
+      fourthPlace: 15,
+    },
+    rules: [
+      'Four runners per House running in designated lanes.',
+      'Baton pass must occur cleanly within the 20-meter exchange zone.',
+      'Dropped batons must be picked up by the dropper without impeding other lanes.',
+    ],
+    imageUrl:
+      'https://images.unsplash.com/photo-1461896836934-ffe607ba8211?auto=format&fit=crop&w=1200&q=80',
+    isActive: false, // Completed
+    scores: [
+      { houseId: 'house-mountainhearts', points: 60, placement: 1 },
+      { houseId: 'house-stormchasers', points: 45, placement: 2 },
+      { houseId: 'house-earthshakers', points: 30, placement: 3 },
+      { houseId: 'house-thunderhooves', points: 15, placement: 4 },
+    ],
+    participatingStudentIds: [
+      'stu-mh-g1-1',
+      'stu-sc-g1-1',
+      'stu-es-g1-1',
+      'stu-th-g1-1',
+    ],
+    notes: 'Completed at 09:45 AM. Mountainhearts finished 1st in the 4x100m.',
+  },
+  {
+    id: 'game-trivia-bowl',
+    title: 'House Trivia & Strategy Bowl',
+    description:
+      'Rapid-fire academic buzzer tournament covering science, literature, history, and strategic school lore in the Auditorium.',
+    category: 'Academics',
+    date: '2026-02-23',
+    time: '01:30 PM',
+    location: 'Auditorium',
+    venueCode: 'AUD',
+    gameType: 'ROUND ROBIN',
+    groupCategory: 'Mixed Division',
+    targetPlayersCount: 4,
+    lessThanMinAllowed: false,
+    scoringSystem: '1st: 50 pts | 2nd: 35 pts | 3rd: 25 pts | 4th: 10 pts',
+    scoringBreakdown: {
+      firstPlace: 50,
+      secondPlace: 35,
+      thirdPlace: 25,
+      fourthPlace: 10,
+    },
+    rules: [
+      'Buzzer lockouts active; teams have 15 seconds to confer once buzzed in.',
+      'Incorrect answers pass question to other houses.',
+      '3 rounds of 12 questions with sudden death tiebreaker.',
+    ],
+    imageUrl:
+      'https://images.unsplash.com/photo-1434030216411-0b793f4b4173?auto=format&fit=crop&w=1200&q=80',
+    isActive: false, // Upcoming
+    scores: [
+      { houseId: 'house-earthshakers', points: 0 },
+      { houseId: 'house-mountainhearts', points: 0 },
+      { houseId: 'house-stormchasers', points: 0 },
+      { houseId: 'house-thunderhooves', points: 0 },
+    ],
+    participatingStudentIds: [],
+    notes: 'Scheduled for 01:30 PM in the Auditorium. Buzzer systems tested and ready.',
+  },
+];
