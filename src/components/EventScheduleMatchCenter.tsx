@@ -6,6 +6,7 @@ import {
   CurrentUser,
   PointTransaction,
   EventScheduleItem,
+  SportsEventHouseScore,
 } from '../types';
 import { DEFAULT_EVENT_SCHEDULE } from '../data/sportsScheduleData';
 import {
@@ -19,8 +20,6 @@ import {
   Sparkles,
   Search,
   CheckCircle,
-  PlusCircle,
-  Filter,
   Download,
   Check,
   ChevronRight,
@@ -30,6 +29,12 @@ import {
   Activity,
   Crown,
   Shield,
+  Medal,
+  ChevronDown,
+  ChevronUp,
+  CalendarCheck,
+  Info,
+  Plus,
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 
@@ -40,7 +45,9 @@ interface EventScheduleMatchCenterProps {
   currentUser: CurrentUser;
   transactions?: PointTransaction[];
   hideLiveTicker?: boolean;
-  onAwardGameScore: (
+  viewMode?: 'all' | 'overview' | 'cards';
+  onNavigateToEvents?: () => void;
+  onAwardGameScore?: (
     gameId: string,
     studentId: string,
     studentName: string,
@@ -51,12 +58,25 @@ interface EventScheduleMatchCenterProps {
   ) => void;
   onUpdateEventScores?: (
     eventId: string,
-    houseScores: { houseId: string; points: number }[]
+    houseScores: { houseId: string; points: number; placement?: 1 | 2 | 3 | 4 }[]
   ) => void;
   onToggleEventActive?: (eventId: string, isActive: boolean) => void;
   onUpdateSportsEvents?: (newEvents: SportsActivityEvent[]) => void;
   onOpenCreateEvent?: () => void;
   onOpenExportSports?: () => void;
+}
+
+export interface StudentAthleteStats {
+  studentId: string;
+  studentName: string;
+  grade: string;
+  houseId: string;
+  houseName: string;
+  houseColor: string;
+  gamesPlayed: number;
+  gamesWon: number;
+  gameTitlesPlayed: string[];
+  gameTitlesWon: string[];
 }
 
 export const EventScheduleMatchCenter: React.FC<EventScheduleMatchCenterProps> = ({
@@ -66,180 +86,88 @@ export const EventScheduleMatchCenter: React.FC<EventScheduleMatchCenterProps> =
   currentUser,
   transactions = [],
   hideLiveTicker = false,
-  onAwardGameScore,
+  viewMode = 'all',
+  onNavigateToEvents,
   onUpdateEventScores,
   onToggleEventActive,
   onOpenExportSports,
 }) => {
-  const canAward = currentUser.role === 'teacher' || currentUser.role === 'admin';
+  const canAward = currentUser.role === 'admin';
 
   // Filters
   const [statusFilter, setStatusFilter] = useState<'all' | 'live' | 'upcoming' | 'completed'>('all');
   const [searchQuery, setSearchQuery] = useState('');
+
+  // Selected game for the house placement modal
   const [selectedGameForScoring, setSelectedGameForScoring] = useState<SportsActivityEvent | null>(
     null
   );
 
-  // Simplified Game Scoring Mode State
-  const [scoringGameId, setScoringGameId] = useState<string>(
-    sportsEvents[0]?.id || 'game-01'
-  );
-  const [scoringStudentId, setScoringStudentId] = useState<string>('');
-  const [scoringPoints, setScoringPoints] = useState<number>(25);
-  const [scoringReason, setScoringReason] = useState<string>('Anchor Performance');
-  const [customReason, setCustomReason] = useState<string>('');
-  const [isScoringSubmitting, setIsScoringSubmitting] = useState(false);
-  const [scoringSuccessMessage, setScoringSuccessMessage] = useState('');
+  // Athlete Leaderboard State (replacing live feed)
+  const [athleteHouseFilter, setAthleteHouseFilter] = useState<string>('all');
+  const [athleteSearchQuery, setAthleteSearchQuery] = useState('');
 
-  // Pre-seed default student if none selected
-  const activeGame = useMemo(() => {
-    return sportsEvents.find((g) => g.id === scoringGameId) || sportsEvents[0];
-  }, [sportsEvents, scoringGameId]);
+  // Helper for high quality event card photo
+  const getEventImage = (game: SportsActivityEvent): string => {
+    if (game.imageUrl) return game.imageUrl;
+    const cat = (game.category || '').toLowerCase();
+    const title = (game.title || '').toLowerCase();
 
-  // Participating students for the selected game
-  const availableParticipants = useMemo(() => {
-    if (!activeGame) return [];
-
-    // First, check participatingStudentsWithRoles
-    if (activeGame.participatingStudentsWithRoles && activeGame.participatingStudentsWithRoles.length > 0) {
-      return activeGame.participatingStudentsWithRoles.map((p) => {
-        const fullStudent = students.find(
-          (s) => s.id === p.studentId || s.name.toLowerCase().includes(p.student_name.toLowerCase().split(' ')[0])
-        );
-        const houseObj = houses.find(
-          (h) => h.name.toLowerCase().includes(p.house.toLowerCase()) || h.id === fullStudent?.houseId
-        );
-        return {
-          id: fullStudent?.id || `participant-${p.student_name}`,
-          name: p.student_name,
-          houseName: houseObj?.name || p.house,
-          houseId: houseObj?.id || 'house-stormchasers',
-          houseColor: houseObj?.color || '#2E90FA',
-          role: p.role || 'Competitor',
-          grade: fullStudent?.grade || 'Primary',
-        };
-      });
+    if (title.includes('tug') || cat.includes('strength')) {
+      return 'https://images.unsplash.com/photo-1526676037777-05a232554f77?auto=format&fit=crop&w=1200&q=80';
     }
-
-    // Second, check participatingStudentIds
-    if (activeGame.participatingStudentIds && activeGame.participatingStudentIds.length > 0) {
-      return activeGame.participatingStudentIds
-        .map((sId) => students.find((s) => s.id === sId))
-        .filter(Boolean)
-        .map((s) => {
-          const houseObj = houses.find((h) => h.id === s!.houseId);
-          return {
-            id: s!.id,
-            name: s!.name,
-            houseName: houseObj?.name || 'House',
-            houseId: s!.houseId,
-            houseColor: houseObj?.color || '#2E90FA',
-            role: 'Participant',
-            grade: s!.grade,
-          };
-        });
+    if (title.includes('sprint') || title.includes('relay') || cat.includes('athletics') || cat.includes('track')) {
+      return 'https://images.unsplash.com/photo-1461896836934-ffe607ba8211?auto=format&fit=crop&w=1200&q=80';
     }
-
-    // Default fallback: sample representatives from each house
-    return houses.map((h) => {
-      const rep = students.find((s) => s.houseId === h.id);
-      return {
-        id: rep?.id || `rep-${h.id}`,
-        name: rep?.name || `${h.name.split(' ')[0]} Athlete`,
-        houseName: h.name,
-        houseId: h.id,
-        houseColor: h.color,
-        role: 'Team Captain',
-        grade: rep?.grade || 'Grade 3',
-      };
-    });
-  }, [activeGame, students, houses]);
-
-  // Set default student when game changes
-  React.useEffect(() => {
-    if (availableParticipants.length > 0 && !scoringStudentId) {
-      setScoringStudentId(availableParticipants[0].id);
+    if (title.includes('swim') || cat.includes('swimming')) {
+      return 'https://images.unsplash.com/photo-1530549387789-4c1017266635?auto=format&fit=crop&w=1200&q=80';
     }
-  }, [availableParticipants, scoringStudentId]);
-
-  // Handle open simplified scoring modal for a specific card
-  const handleOpenQuickScoring = (game: SportsActivityEvent) => {
-    setSelectedGameForScoring(game);
-    setScoringGameId(game.id);
-    const gameParticipants = game.participatingStudentsWithRoles || [];
-    if (gameParticipants.length > 0) {
-      const first = gameParticipants[0];
-      const match = students.find((s) => s.name.toLowerCase().includes(first.student_name.toLowerCase().split(' ')[0]));
-      setScoringStudentId(match?.id || `participant-${first.student_name}`);
+    if (title.includes('trivia') || title.includes('quiz') || cat.includes('academic')) {
+      return 'https://images.unsplash.com/photo-1434030216411-0b793f4b4173?auto=format&fit=crop&w=1200&q=80';
     }
+    if (title.includes('ball') || title.includes('soccer') || title.includes('football')) {
+      return 'https://images.unsplash.com/photo-1574629810360-7efbbe195018?auto=format&fit=crop&w=1200&q=80';
+    }
+    return 'https://images.unsplash.com/photo-1517649763962-0c623266ddc0?auto=format&fit=crop&w=1200&q=80';
   };
 
-  // Submit Simplified Game Scoring
-  const handleSubmitGameScore = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!activeGame) return;
-
-    const studentObj = availableParticipants.find((p) => p.id === scoringStudentId) || availableParticipants[0];
-    if (!studentObj) return;
-
-    const finalReason = customReason.trim() || scoringReason || 'Outstanding Match Performance';
-
-    setIsScoringSubmitting(true);
-
-    onAwardGameScore(
-      activeGame.id,
-      studentObj.id,
-      studentObj.name,
-      studentObj.houseId,
-      scoringPoints,
-      finalReason,
-      activeGame.title
-    );
-
-    confetti({
-      particleCount: 80,
-      spread: 70,
-      origin: { y: 0.6 },
-      colors: [studentObj.houseColor, '#F59E0B', '#10B981'],
-    });
-
-    setScoringSuccessMessage(
-      `+${scoringPoints} points credited to ${studentObj.name} (${studentObj.houseName}) for ${activeGame.title}!`
-    );
-
-    setTimeout(() => {
-      setScoringSuccessMessage('');
-      setIsScoringSubmitting(false);
-      setSelectedGameForScoring(null);
-    }, 2400);
-  };
-
-  // Filtered games
-  const filteredGames = useMemo(() => {
-    return sportsEvents.filter((game) => {
-      // Status filtering
-      const isCompleted = game.notes?.toLowerCase().includes('completed') || (!game.isActive && game.scores?.some((s) => s.points > 0));
-      const isLive = game.isActive;
-      const isUpcoming = !game.isActive && !isCompleted;
-
-      if (statusFilter === 'live' && !isLive) return false;
-      if (statusFilter === 'completed' && !isCompleted) return false;
-      if (statusFilter === 'upcoming' && !isUpcoming) return false;
-
-      // Query filtering
-      if (searchQuery.trim()) {
-        const q = searchQuery.toLowerCase();
-        return (
-          game.title.toLowerCase().includes(q) ||
-          game.category?.toLowerCase().includes(q) ||
-          (game.location && game.location.toLowerCase().includes(q))
-        );
+  // Helper for human-friendly day / date
+  const formatEventDay = (dateStr: string): string => {
+    if (!dateStr) return 'Schedule TBA';
+    if (
+      dateStr.includes('Monday') ||
+      dateStr.includes('Tuesday') ||
+      dateStr.includes('Wednesday') ||
+      dateStr.includes('Thursday') ||
+      dateStr.includes('Friday') ||
+      dateStr.includes('Saturday') ||
+      dateStr.includes('Sunday')
+    ) {
+      return dateStr;
+    }
+    try {
+      const parts = dateStr.split('-');
+      if (parts.length === 3) {
+        const year = parseInt(parts[0], 10);
+        const month = parseInt(parts[1], 10) - 1;
+        const day = parseInt(parts[2], 10);
+        const d = new Date(year, month, day);
+        if (!isNaN(d.getTime())) {
+          return d.toLocaleDateString('en-US', {
+            weekday: 'long',
+            month: 'short',
+            day: 'numeric',
+            year: 'numeric',
+          });
+        }
       }
-      return true;
-    });
-  }, [sportsEvents, statusFilter, searchQuery]);
+    } catch {
+      // fallback
+    }
+    return dateStr;
+  };
 
-  // Group participating students by House for each game event
+  // Helper to get game participants for a house
   const getGameParticipantsByHouse = (game: SportsActivityEvent, house: House) => {
     // 1. From participatingStudentsWithRoles
     const withRoles = (game.participatingStudentsWithRoles || []).filter(
@@ -259,13 +187,6 @@ export const EventScheduleMatchCenter: React.FC<EventScheduleMatchCenterProps> =
           student_name: p.student_name,
           grade: stObj?.grade || 'Primary',
           role: p.role || 'Competitor',
-          points: p.role?.toLowerCase().includes('anchor')
-            ? 25
-            : p.role?.toLowerCase().includes('fastest')
-            ? 20
-            : p.role?.toLowerCase().includes('lead')
-            ? 15
-            : 15,
         };
       });
     }
@@ -280,7 +201,6 @@ export const EventScheduleMatchCenter: React.FC<EventScheduleMatchCenterProps> =
         student_name: s!.name,
         grade: s!.grade,
         role: 'Relay Runner',
-        points: 20,
       }));
     }
 
@@ -292,7 +212,6 @@ export const EventScheduleMatchCenter: React.FC<EventScheduleMatchCenterProps> =
           student_name: 'Poomrapee W.',
           grade: 'PK-4',
           role: 'Anchor Performance',
-          points: 25,
         },
       ];
     } else if (house.id === 'house-earthshakers') {
@@ -302,7 +221,6 @@ export const EventScheduleMatchCenter: React.FC<EventScheduleMatchCenterProps> =
           student_name: 'Thichanan L.',
           grade: 'PK-3',
           role: 'High Effort Lead',
-          points: 15,
         },
       ];
     } else if (house.id === 'house-mountainhearts') {
@@ -312,7 +230,6 @@ export const EventScheduleMatchCenter: React.FC<EventScheduleMatchCenterProps> =
           student_name: 'Linlada P.',
           grade: 'PK-4',
           role: 'Fastest Lap Anchor',
-          points: 20,
         },
       ];
     } else if (house.id === 'house-thunderhooves') {
@@ -322,7 +239,6 @@ export const EventScheduleMatchCenter: React.FC<EventScheduleMatchCenterProps> =
           student_name: 'Kannisa T.',
           grade: 'PK-3',
           role: 'Great Sportsmanship',
-          points: 15,
         },
       ];
     }
@@ -335,7 +251,6 @@ export const EventScheduleMatchCenter: React.FC<EventScheduleMatchCenterProps> =
           student_name: houseStudents[0].name,
           grade: houseStudents[0].grade,
           role: 'Participant',
-          points: 15,
         },
       ];
     }
@@ -343,186 +258,527 @@ export const EventScheduleMatchCenter: React.FC<EventScheduleMatchCenterProps> =
     return [];
   };
 
-  // Quick 1-click trigger to award points to a specific student in a game
-  const handleAwardStudentInGame = (
-    game: SportsActivityEvent,
-    house: House,
-    student: { studentId: string; student_name: string; role: string; points: number }
-  ) => {
-    setSelectedGameForScoring(game);
-    setScoringGameId(game.id);
-    setScoringStudentId(student.studentId);
-    setScoringPoints(student.points || 15);
-    setScoringReason(student.role || 'Outstanding Performance');
+  // Compute athlete participation and win stats across all sports events
+  const athleteStatsMap = useMemo(() => {
+    const stats: Record<string, StudentAthleteStats> = {};
+
+    sportsEvents.forEach((game) => {
+      // Determine winning house for this game (1st place)
+      let winningHouseId: string | null = null;
+      if (game.scores && game.scores.length > 0) {
+        const firstPlaceScore = game.scores.find((s) => s.placement === 1);
+        if (firstPlaceScore) {
+          winningHouseId = firstPlaceScore.houseId;
+        } else {
+          // Fallback: highest points > 0
+          const sortedScores = [...game.scores]
+            .filter((s) => s.points > 0)
+            .sort((a, b) => b.points - a.points);
+          if (sortedScores.length > 0) {
+            winningHouseId = sortedScores[0].houseId;
+          }
+        }
+      }
+
+      houses.forEach((h) => {
+        const houseParticipants = getGameParticipantsByHouse(game, h);
+        const didHouseWin = winningHouseId === h.id;
+
+        houseParticipants.forEach((p) => {
+          const key = p.studentId || p.student_name;
+          if (!stats[key]) {
+            stats[key] = {
+              studentId: p.studentId,
+              studentName: p.student_name,
+              grade: p.grade,
+              houseId: h.id,
+              houseName: h.name.replace('House of ', ''),
+              houseColor: h.color,
+              gamesPlayed: 0,
+              gamesWon: 0,
+              gameTitlesPlayed: [],
+              gameTitlesWon: [],
+            };
+          }
+
+          if (!stats[key].gameTitlesPlayed.includes(game.title)) {
+            stats[key].gamesPlayed += 1;
+            stats[key].gameTitlesPlayed.push(game.title);
+          }
+
+          if (didHouseWin && !stats[key].gameTitlesWon.includes(game.title)) {
+            stats[key].gamesWon += 1;
+            stats[key].gameTitlesWon.push(game.title);
+          }
+        });
+      });
+    });
+
+    return stats;
+  }, [sportsEvents, houses, students]);
+
+  // Top athletes by games played (filtered by house & search)
+  const filteredParticipants = useMemo(() => {
+    return Object.values(athleteStatsMap)
+      .filter((a) => athleteHouseFilter === 'all' || a.houseId === athleteHouseFilter)
+      .filter((a) => {
+        if (!athleteSearchQuery.trim()) return true;
+        const q = athleteSearchQuery.toLowerCase();
+        return (
+          a.studentName.toLowerCase().includes(q) ||
+          a.grade.toLowerCase().includes(q) ||
+          a.houseName.toLowerCase().includes(q)
+        );
+      })
+      .sort((a, b) => b.gamesPlayed - a.gamesPlayed || b.gamesWon - a.gamesWon);
+  }, [athleteStatsMap, athleteHouseFilter, athleteSearchQuery]);
+
+  // Top athletes by games won (filtered by house & search)
+  const filteredWinners = useMemo(() => {
+    return Object.values(athleteStatsMap)
+      .filter((a) => athleteHouseFilter === 'all' || a.houseId === athleteHouseFilter)
+      .filter((a) => a.gamesWon > 0)
+      .filter((a) => {
+        if (!athleteSearchQuery.trim()) return true;
+        const q = athleteSearchQuery.toLowerCase();
+        return (
+          a.studentName.toLowerCase().includes(q) ||
+          a.grade.toLowerCase().includes(q) ||
+          a.houseName.toLowerCase().includes(q)
+        );
+      })
+      .sort((a, b) => b.gamesWon - a.gamesWon || b.gamesPlayed - a.gamesPlayed);
+  }, [athleteStatsMap, athleteHouseFilter, athleteSearchQuery]);
+
+  // Summary Metrics
+  const totalAppearances = useMemo(() => {
+    return Object.values(athleteStatsMap).reduce((sum, a) => sum + a.gamesPlayed, 0);
+  }, [athleteStatsMap]);
+
+  const topActiveStudent = filteredParticipants[0];
+  const topWinningStudent = filteredWinners[0];
+
+  // Placement points helper
+  const getPlacementPoints = (game: SportsActivityEvent, place: 1 | 2 | 3 | 4): number => {
+    if (place === 1) return game.scoringBreakdown?.firstPlace || 50;
+    if (place === 2) return game.scoringBreakdown?.secondPlace || 30;
+    if (place === 3) return game.scoringBreakdown?.thirdPlace || 20;
+    if (place === 4) return game.scoringBreakdown?.fourthPlace || 10;
+    return 0;
   };
 
-  // Live Score Ticker Items (sports and game specific updates)
-  const sportsTickerItems = useMemo(() => {
-    // 1. Transactions filtered to sports/games
-    const sportsTxs = transactions.filter(
-      (tx) =>
-        tx.category === 'Sports Week' ||
-        tx.category === 'House Spirit' ||
-        tx.reason?.includes('Pull') ||
-        tx.reason?.includes('Relays') ||
-        tx.reason?.includes('Tug of War')
-    );
+  // Set placement for a house in a game card (NO individual student awarding)
+  const handleSetHousePlacement = (
+    game: SportsActivityEvent,
+    houseId: string,
+    placement: 1 | 2 | 3 | 4 | null
+  ) => {
+    if (!onUpdateEventScores) return;
 
-    if (sportsTxs.length > 0) {
-      return sportsTxs.slice(0, 8).map((tx) => {
-        const houseObj = houses.find((h) => h.id === tx.houseId);
-        const timeStr = new Date(tx.timestamp).toLocaleTimeString([], {
-          hour: '2-digit',
-          minute: '2-digit',
+    const currentScores: SportsEventHouseScore[] = game.scores ? [...game.scores] : [];
+    let newScores: SportsEventHouseScore[];
+
+    if (placement === null) {
+      newScores = currentScores.filter((s) => s.houseId !== houseId);
+    } else {
+      const points = getPlacementPoints(game, placement);
+
+      // If another house currently had this placement, clear it
+      const existingOther = currentScores.find(
+        (s) => s.placement === placement && s.houseId !== houseId
+      );
+
+      const filtered = currentScores.filter(
+        (s) => s.houseId !== houseId && s.houseId !== existingOther?.houseId
+      );
+
+      newScores = [
+        ...filtered,
+        { houseId, points, placement },
+      ];
+
+      if (placement === 1) {
+        const houseObj = houses.find((h) => h.id === houseId);
+        confetti({
+          particleCount: 70,
+          spread: 65,
+          origin: { y: 0.6 },
+          colors: [houseObj?.color || '#F59E0B', '#F59E0B', '#10B981'],
         });
-        return {
-          id: tx.id,
-          time: timeStr,
-          studentName: tx.studentName,
-          houseName: houseObj?.name?.replace('House of ', '') || 'House',
-          houseColor: houseObj?.color || '#2E90FA',
-          points: tx.amount,
-          gameTitle: tx.reason?.includes('Tug of War')
-            ? 'Tug of War Championship'
-            : tx.reason?.includes('Relay')
-            ? 'Sprint Relays'
-            : 'Match Event',
-          reason: tx.reason || 'Event Performance',
-        };
-      });
+      }
     }
 
-    // Default ticker items matching user specification
-    return [
-      {
-        id: 'tick-1',
-        time: '10:42 AM',
-        studentName: 'Poomrapee W.',
-        houseName: 'Stormchasers',
-        houseColor: '#2E90FA',
-        points: 15,
-        gameTitle: 'Tug of War Championship',
-        reason: 'Won Round 2 Pull',
-      },
-      {
-        id: 'tick-2',
-        time: '09:45 AM',
-        studentName: 'Linlada P.',
-        houseName: 'Mountainhearts',
-        houseColor: '#F76808',
-        points: 20,
-        gameTitle: 'Sprint Relays (4x100m)',
-        reason: 'Fastest Lap Anchor Finish',
-      },
-      {
-        id: 'tick-3',
-        time: '09:20 AM',
-        studentName: 'Thichanan L.',
-        houseName: 'Earthshakers',
-        houseColor: '#12B76A',
-        points: 15,
-        gameTitle: 'Tug of War Championship',
-        reason: 'High Effort Lead Stance',
-      },
-      {
-        id: 'tick-4',
-        time: '09:05 AM',
-        studentName: 'Kannisa T.',
-        houseName: 'Thunderhooves',
-        houseColor: '#7A5AF8',
-        points: 15,
-        gameTitle: 'Sprint Relays',
-        reason: 'Great Sportsmanship Baton Handover',
-      },
-    ];
-  }, [transactions, houses]);
+    onUpdateEventScores(game.id, newScores);
+  };
+
+  // Filtered games
+  const filteredGames = useMemo(() => {
+    return sportsEvents.filter((game) => {
+      const isCompleted =
+        game.notes?.toLowerCase().includes('completed') ||
+        (!game.isActive && game.scores?.some((s) => s.points > 0));
+      const isLive = game.isActive;
+      const isUpcoming = !game.isActive && !isCompleted;
+
+      if (statusFilter === 'live' && !isLive) return false;
+      if (statusFilter === 'completed' && !isCompleted) return false;
+      if (statusFilter === 'upcoming' && !isUpcoming) return false;
+
+      if (searchQuery.trim()) {
+        const q = searchQuery.toLowerCase().trim();
+        return (
+          game.title.toLowerCase().includes(q) ||
+          game.category?.toLowerCase().includes(q) ||
+          (game.location && game.location.toLowerCase().includes(q)) ||
+          (game.description && game.description.toLowerCase().includes(q)) ||
+          (game.rules && game.rules.some((r) => r.toLowerCase().includes(q))) ||
+          (game.participatingStudentsWithRoles &&
+            game.participatingStudentsWithRoles.some(
+              (p) =>
+                p.student_name.toLowerCase().includes(q) ||
+                p.house.toLowerCase().includes(q) ||
+                p.role.toLowerCase().includes(q)
+            ))
+        );
+      }
+      return true;
+    });
+  }, [sportsEvents, statusFilter, searchQuery]);
 
   return (
     <div id="event-schedule-match-center" className="space-y-6">
-      {/* 1. HERO HEADER: EVENT SCHEDULE & MATCH CENTER */}
-      <div className="bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 rounded-3xl p-5 sm:p-7 text-white border border-slate-800 shadow-2xl relative overflow-hidden">
-        <div className="absolute top-0 right-0 w-80 h-80 bg-rose-500/10 rounded-full blur-3xl pointer-events-none" />
-        <div className="absolute bottom-0 left-1/4 w-80 h-80 bg-amber-500/10 rounded-full blur-3xl pointer-events-none" />
+      {/* SECTIONS 1, 2, 3: TOURNAMENT OVERVIEW & ATHLETE LEADERBOARD (when viewMode is 'all' or 'overview') */}
+      {viewMode !== 'cards' && (
+        <>
+          {/* 1. HERO HEADER: HOUSE COMPETITIONS */}
+          <div className="bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 rounded-3xl p-5 sm:p-7 text-white border border-slate-800 shadow-2xl relative overflow-hidden">
+            <div className="absolute top-0 right-0 w-80 h-80 bg-rose-500/10 rounded-full blur-3xl pointer-events-none" />
+            <div className="absolute bottom-0 left-1/4 w-80 h-80 bg-amber-500/10 rounded-full blur-3xl pointer-events-none" />
 
-        <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-5">
-          <div className="space-y-2 max-w-2xl">
-            <div className="flex items-center gap-2.5 flex-wrap">
-              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-black uppercase tracking-wider bg-rose-500 text-white shadow-md shadow-rose-500/25">
-                <Flame className="w-3.5 h-3.5 text-white animate-pulse" />
-                <span>SPORTS DAY &amp; COMPETITION MATCH CENTER</span>
-              </span>
-              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold bg-amber-400/20 text-amber-300 border border-amber-400/30">
-                <Radio className="w-3 h-3 text-rose-400 animate-ping" />
-                <span>LIVE UPDATES ACTIVE</span>
-              </span>
-            </div>
+            <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-5">
+              <div className="space-y-2 max-w-2xl">
+                <div className="flex items-center gap-2.5 flex-wrap">
+                  <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-black uppercase tracking-wider bg-rose-500 text-white shadow-md shadow-rose-500/25">
+                    <Flame className="w-3.5 h-3.5 text-white animate-pulse" />
+                    <span>SPORTS DAY &amp; HOUSE COMPETITIONS</span>
+                  </span>
+                  <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold bg-amber-400/20 text-amber-300 border border-amber-400/30">
+                    <Radio className="w-3 h-3 text-rose-400 animate-ping" />
+                    <span>LIVE UPDATES ACTIVE</span>
+                  </span>
+                </div>
 
-            <h2 className="text-2xl sm:text-3xl font-black text-white font-['Outfit'] tracking-tight">
-              Event Schedule &amp; Match Center
-            </h2>
-            <p className="text-xs sm:text-sm text-slate-300 leading-relaxed">
-              Official school house games schedule, live rosters grouped by house and grade, real-time score tallies, and referee awarding controls.
-            </p>
-          </div>
-
-          {/* Quick Actions (Export, Scoring) */}
-          <div className="flex items-center gap-2.5 flex-wrap shrink-0">
-            {canAward && (
-              <button
-                type="button"
-                id="btn-open-game-scoring"
-                onClick={() => setSelectedGameForScoring(sportsEvents[0] || null)}
-                className="btn-hover-scale inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs sm:text-sm font-black bg-amber-400 hover:bg-amber-300 active:scale-95 text-slate-950 shadow-lg shadow-amber-400/20 transition-all cursor-pointer"
-              >
-                <Sparkles className="w-4 h-4 text-slate-950" />
-                <span>Game Scoring Mode</span>
-              </button>
-            )}
-
-            {onOpenExportSports && (
-              <button
-                type="button"
-                onClick={onOpenExportSports}
-                className="btn-hover-scale inline-flex items-center gap-1.5 px-3.5 py-2.5 rounded-xl text-xs sm:text-sm font-bold bg-slate-800 hover:bg-slate-700 active:scale-95 text-slate-200 border border-slate-700 transition-all cursor-pointer"
-              >
-                <Download className="w-3.5 h-3.5 text-rose-400" />
-                <span>Export Scorecards</span>
-              </button>
-            )}
-          </div>
-        </div>
-
-        {/* 2. REAL-TIME LIVE SCORE TICKER BANNER (Hidden on Home Portal) */}
-        {!hideLiveTicker && (
-          <div className="mt-5 pt-4 border-t border-slate-800/80">
-            <div className="flex items-center gap-3 overflow-hidden rounded-2xl bg-slate-950/70 border border-slate-800 p-2 sm:p-2.5">
-              <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-rose-500/20 text-rose-300 border border-rose-500/30 text-[10px] font-black uppercase tracking-wider shrink-0">
-                <span className="w-2 h-2 rounded-full bg-rose-500 animate-pulse" />
-                <span>LIVE FEED</span>
+                <h2 className="text-2xl sm:text-3xl font-black text-white font-['Outfit'] tracking-tight">
+                  House Competitions
+                </h2>
+                <p className="text-xs sm:text-sm text-slate-300">
+                  Interactive sports handbook, house placements, and tournament athlete leaderboards.
+                </p>
               </div>
 
-              <div className="flex-1 overflow-x-auto no-scrollbar flex items-center gap-4 text-xs">
-                {sportsTickerItems.map((item) => (
-                  <div
-                    key={item.id}
-                    className="flex items-center gap-2 whitespace-nowrap text-slate-300 shrink-0 bg-slate-900/90 px-3 py-1 rounded-lg border border-slate-800"
+              {/* Quick Actions (Browse Cards, Export, Scoring) */}
+              <div className="flex items-center gap-2.5 flex-wrap shrink-0">
+                {onNavigateToEvents && (
+                  <button
+                    type="button"
+                    onClick={onNavigateToEvents}
+                    className="btn-hover-scale inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs sm:text-sm font-black bg-slate-800 hover:bg-slate-700 active:scale-95 text-amber-300 border border-amber-400/30 transition-all cursor-pointer"
                   >
-                    <span className="text-[10px] font-mono text-slate-400">{item.time}</span>
-                    <span className="font-bold text-white">{item.studentName}</span>
-                    <span
-                      className="text-[11px] font-semibold px-1.5 py-0.2 rounded"
-                      style={{
-                        backgroundColor: `${item.houseColor}25`,
-                        color: item.houseColor,
-                      }}
-                    >
-                      {item.houseName}
+                    <CalendarCheck className="w-4 h-4 text-amber-400" />
+                    <span>Browse Activity Cards ({sportsEvents.length}) &rarr;</span>
+                  </button>
+                )}
+
+                {canAward && (
+                  <button
+                    type="button"
+                    id="btn-open-game-scoring"
+                    onClick={() => setSelectedGameForScoring(sportsEvents[0] || null)}
+                    className="btn-hover-scale inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs sm:text-sm font-black bg-amber-400 hover:bg-amber-300 active:scale-95 text-slate-950 shadow-lg shadow-amber-400/20 transition-all cursor-pointer"
+                  >
+                    <Trophy className="w-4 h-4 text-slate-950" />
+                    <span>Score Game Placements</span>
+                  </button>
+                )}
+
+                {onOpenExportSports && (
+                  <button
+                    type="button"
+                    onClick={onOpenExportSports}
+                    className="btn-hover-scale inline-flex items-center gap-1.5 px-3.5 py-2.5 rounded-xl text-xs sm:text-sm font-bold bg-slate-800 hover:bg-slate-700 active:scale-95 text-slate-200 border border-slate-700 transition-all cursor-pointer"
+                  >
+                    <Download className="w-3.5 h-3.5 text-rose-400" />
+                    <span>Export Scorecards</span>
+                  </button>
+                )}
+              </div>
+            </div>
+
+        {/* 2. ATHLETE PARTICIPATION & WIN INDICATOR WIDGET (Replaces live feed ticker) */}
+        {!hideLiveTicker && (
+          <div className="mt-6 pt-5 border-t border-slate-800/80 space-y-4">
+            {/* Widget Header & House Filters */}
+            <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3">
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-xl bg-amber-400 text-slate-950 flex items-center justify-center font-black shrink-0 shadow-md">
+                  <Activity className="w-4 h-4 text-slate-950" />
+                </div>
+                <div>
+                  <h3 className="text-sm sm:text-base font-black text-white font-['Outfit'] flex items-center gap-2">
+                    <span>Tournament Athlete Leaderboard</span>
+                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-400/20 text-amber-300 border border-amber-400/30">
+                      Participation &amp; Wins
                     </span>
-                    <span className="text-emerald-400 font-black">+{item.points} pts</span>
-                    <span className="text-slate-400 text-[11px]">in {item.gameTitle}</span>
-                    <span className="text-amber-300 text-[11px] italic">({item.reason})</span>
+                  </h3>
+                  <p className="text-[11px] text-slate-400">
+                    Tracking students who played the most games and won the most games by house
+                  </p>
+                </div>
+              </div>
+
+              {/* House Filter Pills & Search */}
+              <div className="flex items-center gap-2 flex-wrap">
+                <div className="flex items-center gap-1 bg-slate-950 p-1 rounded-xl border border-slate-800 overflow-x-auto no-scrollbar">
+                  <button
+                    type="button"
+                    onClick={() => setAthleteHouseFilter('all')}
+                    className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                      athleteHouseFilter === 'all'
+                        ? 'bg-amber-400 text-slate-950 font-black shadow-xs'
+                        : 'text-slate-400 hover:text-white'
+                    }`}
+                  >
+                    All Houses
+                  </button>
+                  {houses.map((h) => (
+                    <button
+                      key={h.id}
+                      type="button"
+                      onClick={() => setAthleteHouseFilter(h.id)}
+                      className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+                        athleteHouseFilter === h.id
+                          ? 'bg-slate-800 text-white border border-slate-700 shadow-xs'
+                          : 'text-slate-400 hover:text-white'
+                      }`}
+                    >
+                      <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: h.color }} />
+                      <span>{h.name.replace('House of ', '')}</span>
+                    </button>
+                  ))}
+                </div>
+
+                <div className="relative">
+                  <Search className="w-3.5 h-3.5 text-slate-500 absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                  <input
+                    type="text"
+                    placeholder="Find athlete..."
+                    value={athleteSearchQuery}
+                    onChange={(e) => setAthleteSearchQuery(e.target.value)}
+                    className="pl-8 pr-3 py-1 text-xs bg-slate-950 border border-slate-800 rounded-xl text-white placeholder-slate-500 focus:outline-hidden focus:border-amber-400 w-36 sm:w-44"
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Quick Summary Metrics Badges */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+              <div className="bg-slate-950/80 border border-slate-800/90 rounded-xl p-3 flex items-center gap-3">
+                <div className="w-9 h-9 rounded-xl bg-indigo-500/20 text-indigo-400 border border-indigo-500/30 flex items-center justify-center shrink-0">
+                  <Users className="w-4 h-4" />
+                </div>
+                <div className="min-w-0">
+                  <span className="text-[10px] text-slate-400 uppercase font-bold tracking-wider block">
+                    Total Match Appearances
+                  </span>
+                  <span className="text-base font-black text-white font-['Outfit']">
+                    {totalAppearances} Matches Played
+                  </span>
+                </div>
+              </div>
+
+              <div className="bg-slate-950/80 border border-slate-800/90 rounded-xl p-3 flex items-center gap-3">
+                <div className="w-9 h-9 rounded-xl bg-amber-500/20 text-amber-400 border border-amber-500/30 flex items-center justify-center shrink-0">
+                  <Flame className="w-4 h-4" />
+                </div>
+                <div className="min-w-0">
+                  <span className="text-[10px] text-slate-400 uppercase font-bold tracking-wider block">
+                    Most Active Athlete
+                  </span>
+                  <span className="text-sm font-black text-white truncate block font-['Outfit']">
+                    {topActiveStudent ? `${topActiveStudent.studentName} (${topActiveStudent.gamesPlayed} games)` : 'N/A'}
+                  </span>
+                </div>
+              </div>
+
+              <div className="bg-slate-950/80 border border-slate-800/90 rounded-xl p-3 flex items-center gap-3">
+                <div className="w-9 h-9 rounded-xl bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 flex items-center justify-center shrink-0">
+                  <Trophy className="w-4 h-4" />
+                </div>
+                <div className="min-w-0">
+                  <span className="text-[10px] text-slate-400 uppercase font-bold tracking-wider block">
+                    Top Winning Athlete
+                  </span>
+                  <span className="text-sm font-black text-white truncate block font-['Outfit']">
+                    {topWinningStudent ? `${topWinningStudent.studentName} (${topWinningStudent.gamesWon} wins)` : 'Awaiting results'}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            {/* Dual Ranking Cards (Side-by-Side: Most Games Played vs Most Games Won - Top 3 Only) */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
+              {/* Card A: Most Games Participated (Top 3) */}
+              <div className="bg-slate-950/90 border border-slate-800 rounded-2xl p-4 space-y-3 shadow-md">
+                <div className="flex items-center justify-between pb-2 border-b border-slate-800">
+                  <div className="flex items-center gap-2">
+                    <span className="text-base">🏃</span>
+                    <div>
+                      <h4 className="text-xs sm:text-sm font-black text-white uppercase tracking-wider">
+                        Most Games Participated
+                      </h4>
+                      <p className="text-[10px] text-slate-400">Top 3 athletes with highest match appearance counts</p>
+                    </div>
                   </div>
-                ))}
+                  <span className="text-[11px] font-bold text-amber-400 bg-amber-400/10 border border-amber-400/20 px-2 py-0.5 rounded-md">
+                    Top 3 Athletes
+                  </span>
+                </div>
+
+                <div className="space-y-2">
+                  {filteredParticipants.length === 0 ? (
+                    <div className="p-4 text-center text-xs text-slate-500">
+                      No athletes found matching this filter.
+                    </div>
+                  ) : (
+                    filteredParticipants.slice(0, 3).map((athlete, idx) => (
+                      <div
+                        key={athlete.studentId || athlete.studentName}
+                        className="flex items-center justify-between gap-2 p-2.5 rounded-xl bg-slate-900/90 border border-slate-800/80 hover:border-slate-700 transition-all text-xs"
+                      >
+                        <div className="flex items-center gap-2.5 min-w-0">
+                          <span
+                            className={`w-6 h-6 rounded-lg flex items-center justify-center font-black text-xs shrink-0 ${
+                              idx === 0
+                                ? 'bg-amber-400 text-slate-950 shadow-sm'
+                                : idx === 1
+                                ? 'bg-slate-300 text-slate-950 shadow-sm'
+                                : 'bg-amber-700 text-white shadow-sm'
+                            }`}
+                          >
+                            {idx === 0 ? '🥇' : idx === 1 ? '🥈' : '🥉'}
+                          </span>
+
+                          <div className="min-w-0">
+                            <div className="flex items-center gap-1.5">
+                              <span className="font-extrabold text-white truncate text-xs">
+                                {athlete.studentName}
+                              </span>
+                              <span className="text-[10px] text-slate-400">({athlete.grade})</span>
+                            </div>
+                            <div className="flex items-center gap-1.5 mt-0.5">
+                              <span
+                                className="w-2 h-2 rounded-full shrink-0"
+                                style={{ backgroundColor: athlete.houseColor }}
+                              />
+                              <span className="text-[10px] font-semibold text-slate-300">
+                                {athlete.houseName}
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Indicators: Games Played & Games Won */}
+                        <div className="flex items-center gap-1.5 shrink-0">
+                          <span className="px-2.5 py-1 rounded-lg text-xs font-black bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 flex items-center gap-1">
+                            <span>🎯</span>
+                            <span>{athlete.gamesPlayed} Played</span>
+                          </span>
+                          {athlete.gamesWon > 0 && (
+                            <span className="px-2 py-1 rounded-lg text-[11px] font-black bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+                              🏆 {athlete.gamesWon}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </div>
+
+              {/* Card B: Most Games Won by House (Top 3) */}
+              <div className="bg-slate-950/90 border border-slate-800 rounded-2xl p-4 space-y-3 shadow-md">
+                <div className="flex items-center justify-between pb-2 border-b border-slate-800">
+                  <div className="flex items-center gap-2">
+                    <span className="text-base">🏆</span>
+                    <div>
+                      <h4 className="text-xs sm:text-sm font-black text-white uppercase tracking-wider">
+                        Most Games Won by House
+                      </h4>
+                      <p className="text-[10px] text-slate-400">Top 3 athletes with the most 1st-place match victories</p>
+                    </div>
+                  </div>
+                  <span className="text-[11px] font-bold text-amber-400 bg-amber-400/10 border border-amber-400/20 px-2 py-0.5 rounded-md">
+                    Top 3 Winners
+                  </span>
+                </div>
+
+                <div className="space-y-2">
+                  {filteredWinners.length === 0 ? (
+                    <div className="p-4 text-center text-xs text-slate-500">
+                      No game wins recorded yet. Score 1st place on game cards below to see winners!
+                    </div>
+                  ) : (
+                    filteredWinners.slice(0, 3).map((athlete, idx) => (
+                      <div
+                        key={athlete.studentId || athlete.studentName}
+                        className="flex items-center justify-between gap-2 p-2.5 rounded-xl bg-slate-900/90 border border-slate-800/80 hover:border-slate-700 transition-all text-xs"
+                      >
+                        <div className="flex items-center gap-2.5 min-w-0">
+                          <span
+                            className={`w-6 h-6 rounded-lg flex items-center justify-center font-black text-xs shrink-0 ${
+                              idx === 0
+                                ? 'bg-amber-400 text-slate-950 shadow-sm'
+                                : idx === 1
+                                ? 'bg-slate-300 text-slate-950 shadow-sm'
+                                : 'bg-amber-700 text-white shadow-sm'
+                            }`}
+                          >
+                            {idx === 0 ? '🥇' : idx === 1 ? '🥈' : '🥉'}
+                          </span>
+
+                          <div className="min-w-0">
+                            <div className="flex items-center gap-1.5">
+                              <span className="font-extrabold text-white truncate text-xs">
+                                {athlete.studentName}
+                              </span>
+                              <span className="text-[10px] text-slate-400">({athlete.grade})</span>
+                            </div>
+                            <div className="flex items-center gap-1.5 mt-0.5">
+                              <span
+                                className="w-2 h-2 rounded-full shrink-0"
+                                style={{ backgroundColor: athlete.houseColor }}
+                              />
+                              <span className="text-[10px] font-semibold text-slate-300">
+                                {athlete.houseName}
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Indicators: Games Won & Games Played */}
+                        <div className="flex items-center gap-1.5 shrink-0">
+                          <span className="px-2.5 py-1 rounded-lg text-xs font-black bg-gradient-to-r from-amber-400 to-amber-500 text-slate-950 shadow-xs flex items-center gap-1">
+                            <span>🥇</span>
+                            <span>{athlete.gamesWon} Won</span>
+                          </span>
+                          <span className="px-2 py-1 rounded-lg text-[11px] font-bold bg-slate-800 text-slate-400 border border-slate-700">
+                            {athlete.gamesPlayed} played
+                          </span>
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
               </div>
             </div>
           </div>
@@ -593,6 +849,92 @@ export const EventScheduleMatchCenter: React.FC<EventScheduleMatchCenterProps> =
         </div>
       </div>
 
+      {/* CTA BANNER TO JUMP TO EVENTS TAB (when in overview mode) */}
+      {viewMode === 'overview' && onNavigateToEvents && (
+        <div className="bg-gradient-to-r from-indigo-950/60 via-slate-900 to-slate-950 border border-indigo-500/30 rounded-2xl p-5 flex flex-col sm:flex-row items-center justify-between gap-4 shadow-lg">
+          <div className="flex items-center gap-3.5">
+            <div className="w-12 h-12 rounded-2xl bg-amber-400/10 border border-amber-400/20 flex items-center justify-center shrink-0">
+              <CalendarCheck className="w-6 h-6 text-amber-400" />
+            </div>
+            <div>
+              <h4 className="text-base font-black text-white font-['Outfit']">
+                Looking for the actual Match Activity Cards?
+              </h4>
+              <p className="text-xs text-slate-400">
+                Switch to the <span className="text-amber-400 font-bold">House Competitions Events</span> tab to view full cards, rosters, and award house placements.
+              </p>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={onNavigateToEvents}
+            className="btn-hover-scale inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-xs sm:text-sm font-black bg-amber-400 hover:bg-amber-300 text-slate-950 shadow-md transition-all cursor-pointer whitespace-nowrap shrink-0"
+          >
+            <span>Open House Competitions Events</span>
+            <span>&rarr;</span>
+          </button>
+        </div>
+      )}
+    </>
+  )}
+
+  {/* SECTIONS 4 & 5: THE ACTUAL HOUSE ACTIVITY CARDS (when viewMode is 'all' or 'cards') */}
+  {viewMode !== 'overview' && (
+    <>
+      {/* DEDICATED HEADER FOR HOUSE COMPETITIONS EVENTS TAB */}
+      {viewMode === 'cards' && (
+        <div className="bg-gradient-to-r from-slate-900 via-indigo-950/80 to-slate-900 rounded-3xl p-5 sm:p-7 text-white border border-slate-800 shadow-2xl relative overflow-hidden">
+          <div className="absolute top-0 right-0 w-80 h-80 bg-amber-500/10 rounded-full blur-3xl pointer-events-none" />
+          <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-5">
+            <div className="space-y-2 max-w-2xl">
+              <div className="flex items-center gap-2.5 flex-wrap">
+                <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-black uppercase tracking-wider bg-amber-400 text-slate-950 shadow-md shadow-amber-400/25">
+                  <CalendarCheck className="w-3.5 h-3.5 text-slate-950" />
+                  <span>HOUSE COMPETITIONS &amp; MATCH CARDS</span>
+                </span>
+                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold bg-rose-500/20 text-rose-300 border border-rose-500/30">
+                  <span className="w-2 h-2 rounded-full bg-rose-500 animate-pulse" />
+                  <span>LIVE MATCH PLACEMENTS</span>
+                </span>
+              </div>
+
+              <h2 className="text-2xl sm:text-3xl font-black text-white font-['Outfit'] tracking-tight">
+                House Competitions Events
+              </h2>
+              <p className="text-xs sm:text-sm text-slate-300">
+                Official sports activity cards, house matchup rosters, venue locations, and interactive placement scoring.
+              </p>
+            </div>
+
+            {/* Quick Actions (Export, Scoring) */}
+            <div className="flex items-center gap-2.5 flex-wrap shrink-0">
+              {canAward && (
+                <button
+                  type="button"
+                  id="btn-open-game-scoring-events"
+                  onClick={() => setSelectedGameForScoring(sportsEvents[0] || null)}
+                  className="btn-hover-scale inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs sm:text-sm font-black bg-amber-400 hover:bg-amber-300 active:scale-95 text-slate-950 shadow-lg shadow-amber-400/20 transition-all cursor-pointer"
+                >
+                  <Trophy className="w-4 h-4 text-slate-950" />
+                  <span>Score Game Placements</span>
+                </button>
+              )}
+
+              {onOpenExportSports && (
+                <button
+                  type="button"
+                  onClick={onOpenExportSports}
+                  className="btn-hover-scale inline-flex items-center gap-1.5 px-3.5 py-2.5 rounded-xl text-xs sm:text-sm font-bold bg-slate-800 hover:bg-slate-700 active:scale-95 text-slate-200 border border-slate-700 transition-all cursor-pointer"
+                >
+                  <Download className="w-3.5 h-3.5 text-rose-400" />
+                  <span>Export Scorecards</span>
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* 4. CONTROLS & FILTER BAR */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-slate-900/80 p-3 rounded-2xl border border-slate-800">
         <div className="flex items-center gap-1.5 p-1 bg-slate-950 border border-slate-800 rounded-xl overflow-x-auto no-scrollbar">
@@ -601,236 +943,315 @@ export const EventScheduleMatchCenter: React.FC<EventScheduleMatchCenterProps> =
               key={filter}
               type="button"
               onClick={() => setStatusFilter(filter)}
-              className={`px-3 py-1.5 rounded-lg text-xs font-bold capitalize transition-all cursor-pointer ${
+              className={`px-3 py-1.5 rounded-lg text-xs font-bold uppercase tracking-wider transition-all cursor-pointer ${
                 statusFilter === filter
-                  ? 'bg-amber-400 text-slate-950 font-black shadow-xs'
+                  ? 'bg-amber-400 text-slate-950 font-black shadow-md'
                   : 'text-slate-400 hover:text-white'
               }`}
             >
-              {filter === 'all' ? 'All Games' : filter === 'live' ? '🔥 Live Now' : filter}
+              {filter}
             </button>
           ))}
         </div>
 
-        <div className="relative min-w-[200px] sm:min-w-[260px]">
-          <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+        <div className="relative">
+          <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
           <input
             type="text"
-            placeholder="Search games, venues, categories..."
+            placeholder="Search game, category or location..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full pl-9 pr-3 py-1.5 bg-slate-950 border border-slate-800 rounded-xl text-xs text-white placeholder-slate-500 focus:outline-hidden focus:border-amber-400"
+            className="w-full sm:w-64 pl-9 pr-3.5 py-2 text-xs bg-slate-950 border border-slate-800 rounded-xl text-white placeholder-slate-500 focus:outline-hidden focus:border-amber-400"
           />
         </div>
       </div>
 
-      {/* 5. HOUSE COMPETITION CARDS (Games & Events with Participants Grouped by House) */}
+      {/* 5. INTERACTIVE GAME CARDS LIST */}
       <div className="space-y-4">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-          <div>
-            <h3 className="text-base sm:text-lg font-black text-white font-['Outfit'] flex items-center gap-2">
-              <Trophy className="w-5 h-5 text-amber-400" />
-              <span>House Competition Cards ({filteredGames.length})</span>
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <Trophy className="w-4 h-4 text-amber-400" />
+            <h3 className="text-base font-black text-white font-['Outfit']">
+              Game Cards &amp; House Placements ({filteredGames.length})
             </h3>
-            <p className="text-xs text-slate-400 font-medium">
-              Featured match games &amp; events &bull; Structured by Game Title &bull; House Scoring &bull; Participants by House &bull; Students Names
-            </p>
           </div>
-          <span className="text-xs text-slate-400 font-semibold hidden sm:inline-block">
-            Official Competition Scorecards
+          <span className="text-xs text-slate-400 hidden sm:inline">
+            {canAward ? 'Click 1st, 2nd, 3rd, or 4th place on any house to award points' : 'House standings update live with each match placement'}
           </span>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+        <div className="grid grid-cols-1 gap-5">
           {filteredGames.map((game) => {
             const isCompleted =
               game.notes?.toLowerCase().includes('completed') ||
               (!game.isActive && game.scores?.some((s) => s.points > 0));
-            const isLive = game.isActive;
-            const statusTag = isLive ? 'LIVE NOW' : isCompleted ? 'Completed' : 'Upcoming';
-
-            const sortedScores = [...(game.scores || [])].sort((a, b) => b.points - a.points);
-            const winnerScore = sortedScores[0];
-            const winnerHouse = houses.find((h) => h.id === winnerScore?.houseId);
 
             return (
               <div
                 key={game.id}
-                className="bg-[#161B22] rounded-2xl border border-slate-800 p-5 flex flex-col justify-between gap-4 shadow-xl hover:border-slate-700 transition-all text-white relative overflow-hidden"
+                className="bg-[#161B22] border border-slate-800 rounded-2xl p-4 sm:p-5 shadow-lg space-y-4 relative overflow-hidden transition-all hover:border-slate-700"
               >
-                {/* 1. GAME TITLE & DETAILS */}
-                <div className="border-b border-slate-800 pb-3">
-                  <div className="flex items-start justify-between gap-2 mb-2">
-                    <div>
-                      <div className="flex items-center gap-2 flex-wrap mb-1">
-                        <span
-                          className={`px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider ${
-                            isLive
-                              ? 'bg-rose-500/20 text-rose-400 border border-rose-500/40 animate-pulse'
-                              : isCompleted
-                              ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
-                              : 'bg-slate-800 text-slate-400'
-                          }`}
-                        >
-                          {statusTag}
-                        </span>
-
-                        <span className="text-xs text-slate-400 font-mono font-medium flex items-center gap-1">
-                          <Clock className="w-3 h-3 text-amber-400" />
-                          {game.time || '10:30 AM'}
-                        </span>
-
-                        {game.location && (
-                          <span className="text-xs text-slate-400 flex items-center gap-1">
-                            <MapPin className="w-3 h-3 text-rose-400" />
-                            {game.location}
-                          </span>
-                        )}
-                      </div>
-
-                      <h4 className="text-lg sm:text-xl font-black text-white font-['Outfit']">
-                        {game.title}
-                      </h4>
-                    </div>
-
-                    {game.category && (
-                      <span className="text-[10px] font-bold bg-indigo-600/20 text-indigo-300 border border-indigo-500/30 px-2 py-0.5 rounded-md shrink-0">
+                {/* 1. CARD HEADER */}
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-800">
+                  <div className="space-y-1 min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="px-2 py-0.5 rounded-md text-[10px] font-black uppercase tracking-wider bg-slate-800 text-amber-400 border border-slate-700">
                         {game.category}
                       </span>
-                    )}
+                      {game.isActive && (
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-black uppercase tracking-wider bg-rose-500 text-white animate-pulse">
+                          <span className="w-1.5 h-1.5 rounded-full bg-white" />
+                          Live Now
+                        </span>
+                      )}
+                      {isCompleted && (
+                        <span className="px-2 py-0.5 rounded-md text-[10px] font-black uppercase tracking-wider bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+                          Completed
+                        </span>
+                      )}
+                    </div>
+
+                    <h4 className="text-lg font-black text-white font-['Outfit'] truncate">
+                      {game.title}
+                    </h4>
+                    <div className="flex items-center gap-3 text-xs text-slate-400 flex-wrap">
+                      {game.time && (
+                        <span className="flex items-center gap-1 font-mono">
+                          <Clock className="w-3.5 h-3.5 text-amber-400" />
+                          {game.time}
+                        </span>
+                      )}
+                      {game.location && (
+                        <span className="flex items-center gap-1">
+                          <MapPin className="w-3.5 h-3.5 text-rose-400" />
+                          {game.location}
+                        </span>
+                      )}
+                      {game.scoringSystem && (
+                        <span className="text-[11px] text-slate-400 italic">
+                          Scoring: {game.scoringSystem}
+                        </span>
+                      )}
+                    </div>
                   </div>
 
-                  <p className="text-xs text-slate-300 line-clamp-2 leading-relaxed">
-                    {game.description}
-                  </p>
+                  {canAward && (
+                    <button
+                      type="button"
+                      onClick={() => setSelectedGameForScoring(game)}
+                      className="btn-hover-scale px-3 py-1.5 rounded-xl text-xs font-bold bg-slate-800 hover:bg-slate-700 text-amber-300 border border-amber-500/30 shrink-0 self-start sm:self-auto cursor-pointer flex items-center gap-1.5"
+                    >
+                      <Trophy className="w-3.5 h-3.5 text-amber-400" />
+                      <span>Set Placements Modal</span>
+                    </button>
+                  )}
                 </div>
 
-                {/* 2. HOUSE SCORING */}
-                <div className="bg-slate-950/80 rounded-xl p-3 border border-slate-800 space-y-2">
-                  <div className="flex items-center justify-between text-[11px] font-bold">
-                    <span className="text-slate-400 uppercase tracking-wider text-[10px] flex items-center gap-1.5">
+                {/* 2. HOUSE PLACEMENTS SCORING ROW (Click on House & Put Place) */}
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[10px] font-black uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
                       <Trophy className="w-3.5 h-3.5 text-amber-400" />
-                      House Scoring:
+                      House Placements &amp; Points:
                     </span>
-                    {winnerScore && winnerScore.points > 0 && (
-                      <span className="text-amber-300 font-extrabold flex items-center gap-1 text-[11px] bg-amber-400/10 px-2 py-0.5 rounded-md border border-amber-400/30">
-                        <Crown className="w-3 h-3 text-amber-400" />
-                        Winner: {winnerHouse?.name?.replace('House of ', '')} ({winnerScore.points} pts)
+                    {canAward && (
+                      <span className="text-[10px] text-amber-300 font-bold">
+                        Click 1st, 2nd, 3rd, or 4th to assign placement
                       </span>
                     )}
                   </div>
 
-                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2.5">
                     {houses.map((house) => {
-                      const scoreItem = game.scores?.find((s) => s.houseId === house.id);
-                      const pts = scoreItem?.points || 0;
-                      const isWinner = winnerScore && winnerScore.houseId === house.id && pts > 0;
+                      const scoreObj = game.scores?.find((s) => s.houseId === house.id);
+                      const currentPlacement = scoreObj?.placement;
+                      const points = scoreObj?.points || 0;
+
                       return (
                         <div
                           key={house.id}
-                          className={`p-2 rounded-lg text-center transition-all ${
-                            isWinner
-                              ? 'bg-amber-400/10 border-2 border-amber-400/60 shadow-xs'
-                              : 'bg-slate-900 border border-slate-800'
+                          className={`p-3 rounded-xl border flex flex-col justify-between gap-2.5 transition-all relative overflow-hidden ${
+                            currentPlacement === 1
+                              ? 'bg-amber-500/15 border-amber-400 shadow-md ring-1 ring-amber-400/50'
+                              : currentPlacement === 2
+                              ? 'bg-slate-800/80 border-slate-400/60 shadow-xs'
+                              : currentPlacement === 3
+                              ? 'bg-amber-950/20 border-amber-700/60'
+                              : currentPlacement === 4
+                              ? 'bg-slate-900 border-slate-700/60'
+                              : 'bg-slate-950/80 border-slate-800'
                           }`}
                         >
-                          <div className="flex items-center justify-center gap-1 mb-0.5">
-                            <span
-                              className="w-2 h-2 rounded-full shrink-0"
-                              style={{ backgroundColor: house.color }}
-                            />
-                            <span className="text-[10px] font-bold text-slate-300 truncate">
-                              {house.name.replace('House of ', '')}
+                          <div
+                            className="absolute top-0 left-0 right-0 h-1"
+                            style={{ backgroundColor: house.color }}
+                          />
+
+                          <div className="flex items-center justify-between gap-1.5 mt-0.5">
+                            <div className="flex items-center gap-1.5 min-w-0">
+                              <span
+                                className="w-2.5 h-2.5 rounded-full shrink-0"
+                                style={{ backgroundColor: house.color }}
+                              />
+                              <span className="font-extrabold text-white text-xs truncate">
+                                {house.name.replace('House of ', '')}
+                              </span>
+                            </div>
+
+                            <div className="text-right shrink-0">
+                              <span
+                                className={`text-[10px] font-black px-1.5 py-0.5 rounded ${
+                                  currentPlacement === 1
+                                    ? 'bg-amber-400 text-slate-950 shadow-xs'
+                                    : currentPlacement === 2
+                                    ? 'bg-slate-300 text-slate-950'
+                                    : currentPlacement === 3
+                                    ? 'bg-amber-700 text-white'
+                                    : currentPlacement === 4
+                                    ? 'bg-slate-800 text-slate-300'
+                                    : 'bg-slate-900 text-slate-500'
+                                }`}
+                              >
+                                {currentPlacement === 1
+                                  ? '🥇 1st Place'
+                                  : currentPlacement === 2
+                                  ? '🥈 2nd Place'
+                                  : currentPlacement === 3
+                                  ? '🥉 3rd Place'
+                                  : currentPlacement === 4
+                                  ? '4th Place'
+                                  : 'Unranked'}
+                              </span>
+                            </div>
+                          </div>
+
+                          <div className="flex items-baseline justify-between pt-1 border-t border-slate-800/60">
+                            <span className="text-[10px] text-slate-400">Awarded Points:</span>
+                            <span className="text-sm font-black text-white font-['Outfit']">
+                              {points > 0 ? `+${points} pts` : '0 pts'}
                             </span>
                           </div>
-                          <span className="text-base font-black text-white font-['Outfit'] block leading-none my-0.5">
-                            {pts}
-                          </span>
-                          <span className="text-[8px] text-slate-500 uppercase font-semibold">pts</span>
+
+                          {/* Quick Placement Action Pills for Admin */}
+                          {canAward && (
+                            <div className="grid grid-cols-4 gap-1 pt-1 border-t border-slate-800/80">
+                              {([1, 2, 3, 4] as const).map((place) => {
+                                const isSelected = currentPlacement === place;
+                                const placeLabel = place === 1 ? '1st' : place === 2 ? '2nd' : place === 3 ? '3rd' : '4th';
+                                return (
+                                  <button
+                                    key={place}
+                                    type="button"
+                                    onClick={() =>
+                                      handleSetHousePlacement(
+                                        game,
+                                        house.id,
+                                        isSelected ? null : place
+                                      )
+                                    }
+                                    className={`py-1 rounded text-[10px] font-black transition-all cursor-pointer border text-center ${
+                                      isSelected
+                                        ? place === 1
+                                          ? 'bg-amber-400 text-slate-950 border-amber-400 shadow-xs font-black'
+                                          : place === 2
+                                          ? 'bg-slate-200 text-slate-950 border-slate-200'
+                                          : place === 3
+                                          ? 'bg-amber-700 text-white border-amber-600'
+                                          : 'bg-slate-700 text-white border-slate-600'
+                                        : 'bg-slate-900/90 text-slate-400 border-slate-800 hover:text-white hover:bg-slate-800'
+                                    }`}
+                                    title={`Click to set ${house.name} as ${placeLabel} place`}
+                                  >
+                                    {placeLabel}
+                                  </button>
+                                );
+                              })}
+                            </div>
+                          )}
                         </div>
                       );
                     })}
                   </div>
                 </div>
 
-                {/* 3. PARTICIPANTS BY HOUSE | STUDENTS NAMES */}
-                <div className="space-y-2 pt-1 border-t border-slate-800/80">
+                {/* 3. ATHLETES BY HOUSE (Pure Rosters with Games Played/Won Stats - NO Individual Award Buttons) */}
+                <div className="space-y-2 pt-2 border-t border-slate-800/80">
                   <div className="flex items-center justify-between">
                     <span className="text-[10px] font-black text-slate-300 uppercase tracking-wider flex items-center gap-1.5">
                       <Users className="w-3.5 h-3.5 text-indigo-400" />
-                      Participants by House &bull; Students Names:
+                      Participating Athletes by House:
                     </span>
-                    <span className="text-[10px] text-slate-400 font-semibold">
-                      Athletes Grouped Under Houses
+                    <span className="text-[10px] text-slate-400">
+                      Team Rosters &bull; Tournament Stats Indicator
                     </span>
                   </div>
 
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
                     {houses.map((h) => {
                       const houseParticipants = getGameParticipantsByHouse(game, h);
-                      const houseScore =
-                        game.scores?.find((s) => s.houseId === h.id)?.points || 0;
 
                       return (
                         <div
                           key={h.id}
-                          className="bg-slate-900/90 border border-slate-800 rounded-xl p-2.5 space-y-1.5 hover:border-slate-700 transition-all"
+                          className="bg-slate-900/80 border border-slate-800/90 rounded-xl p-2.5 space-y-1.5 hover:border-slate-700 transition-all"
                         >
-                          {/* House Header */}
                           <div className="flex items-center justify-between pb-1 border-b border-slate-800/80">
                             <div className="flex items-center gap-1.5 min-w-0">
                               <span
-                                className="w-2.5 h-2.5 rounded-full shrink-0"
+                                className="w-2 h-2 rounded-full shrink-0"
                                 style={{ backgroundColor: h.color }}
                               />
                               <span className="text-xs font-black text-white truncate">
                                 {h.name}
                               </span>
                             </div>
-                            <span
-                              className="text-[9px] font-black px-1.5 py-0.2 rounded shrink-0"
-                              style={{
-                                backgroundColor: `${h.color}25`,
-                                color: h.color,
-                                border: `1px solid ${h.color}40`,
-                              }}
-                            >
-                              {houseScore} pts
+                            <span className="text-[10px] text-slate-400 font-semibold">
+                              {houseParticipants.length} Athletes
                             </span>
                           </div>
 
-                          {/* Students Names Underneath */}
                           <div className="space-y-1">
                             {houseParticipants.length > 0 ? (
-                              houseParticipants.map((student, sIdx) => (
-                                <div
-                                  key={sIdx}
-                                  className="flex items-center justify-between text-xs bg-slate-950/80 px-2 py-1.5 rounded-lg border border-slate-800/80"
-                                >
-                                  <div className="min-w-0 pr-1">
-                                    <strong className="text-white font-extrabold truncate block text-[11px]">
-                                      {student.student_name}
-                                    </strong>
-                                    <span className="text-[9px] text-slate-400">
-                                      ({student.grade}) &bull;{' '}
-                                      <span className="text-amber-300 italic">{student.role}</span>
-                                    </span>
-                                  </div>
+                              houseParticipants.map((student, sIdx) => {
+                                const athleteStats =
+                                  athleteStatsMap[student.studentId] ||
+                                  athleteStatsMap[student.student_name];
+                                const playedCount = athleteStats?.gamesPlayed || 1;
+                                const wonCount = athleteStats?.gamesWon || 0;
 
-                                  {canAward && (
-                                    <button
-                                      type="button"
-                                      onClick={() => handleAwardStudentInGame(game, h, student)}
-                                      className="btn-hover-scale px-1.5 py-0.5 rounded text-[9px] font-black bg-amber-400 hover:bg-amber-300 text-slate-950 shrink-0 ml-1 cursor-pointer shadow-xs"
-                                      title={`Award points to ${student.student_name}`}
-                                    >
-                                      + Award
-                                    </button>
-                                  )}
-                                </div>
-                              ))
+                                return (
+                                  <div
+                                    key={sIdx}
+                                    className="flex items-center justify-between text-xs bg-slate-950/80 px-2 py-1.5 rounded-lg border border-slate-800/80"
+                                  >
+                                    <div className="min-w-0 pr-2">
+                                      <strong className="text-white font-extrabold truncate block text-[11px]">
+                                        {student.student_name}
+                                      </strong>
+                                      <span className="text-[9px] text-slate-400">
+                                        ({student.grade}) &bull;{' '}
+                                        <span className="text-amber-300 italic">{student.role}</span>
+                                      </span>
+                                    </div>
+
+                                    {/* Student Games Played & Won Indicator */}
+                                    <div className="flex items-center gap-1.5 shrink-0 text-[10px] font-bold">
+                                      <span className="px-1.5 py-0.5 rounded bg-slate-900 text-slate-300 border border-slate-800">
+                                        🎯 {playedCount} played
+                                      </span>
+                                      {wonCount > 0 && (
+                                        <span className="px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+                                          🏆 {wonCount} win{wonCount > 1 ? 's' : ''}
+                                        </span>
+                                      )}
+                                    </div>
+                                  </div>
+                                );
+                              })
                             ) : (
-                              <p className="text-[10px] text-slate-500 italic py-0.5">No athletes registered</p>
+                              <p className="text-[10px] text-slate-500 italic py-0.5">
+                                No athletes registered
+                              </p>
                             )}
                           </div>
                         </div>
@@ -838,43 +1259,30 @@ export const EventScheduleMatchCenter: React.FC<EventScheduleMatchCenterProps> =
                     })}
                   </div>
                 </div>
-
-                {/* 4. FOOTER: REFEREE ACTION */}
-                {canAward && (
-                  <div className="pt-2 border-t border-slate-800/80 flex items-center justify-between gap-2">
-                    <span className="text-[11px] text-slate-400">Referee Action:</span>
-                    <button
-                      type="button"
-                      onClick={() => handleOpenQuickScoring(game)}
-                      className="btn-hover-scale inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold bg-amber-400 hover:bg-amber-300 active:scale-95 text-slate-950 transition-all cursor-pointer shadow-xs"
-                    >
-                      <Sparkles className="w-3.5 h-3.5 text-slate-950" />
-                      <span>Award Points to Game Participant</span>
-                    </button>
-                  </div>
-                )}
               </div>
             );
           })}
         </div>
       </div>
+    </>
+  )}
 
-      {/* 6. SIMPLIFIED GAME SCORING MODE MODAL (Teacher & Admin Dashboard) */}
-      {selectedGameForScoring && (
+      {/* 6. DEDICATED HOUSE PLACEMENT SCORING MODAL (Pure House Placement) */}
+      {selectedGameForScoring && viewMode !== 'cards' && (
         <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4 animate-in fade-in duration-150">
           <div className="bg-slate-900 border border-slate-800 rounded-2xl w-full max-w-lg p-5 sm:p-6 shadow-2xl space-y-5 relative max-h-[92vh] overflow-y-auto text-white">
             {/* Header */}
             <div className="flex items-center justify-between pb-3 border-b border-slate-800">
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-xl bg-amber-400 text-slate-950 flex items-center justify-center font-black">
-                  <Sparkles className="w-5 h-5" />
+                  <Trophy className="w-5 h-5" />
                 </div>
                 <div>
                   <h3 className="text-lg font-black text-white font-['Outfit']">
-                    Simplified Game Scoring Mode
+                    Score Game Placements
                   </h3>
                   <p className="text-xs text-slate-400">
-                    Push instant updates to Game Cards, Home Feed &amp; Podium
+                    Click each house to set 1st, 2nd, 3rd, or 4th place
                   </p>
                 </div>
               </div>
@@ -882,146 +1290,139 @@ export const EventScheduleMatchCenter: React.FC<EventScheduleMatchCenterProps> =
               <button
                 type="button"
                 onClick={() => setSelectedGameForScoring(null)}
-                className="text-slate-400 hover:text-white p-1 rounded-lg hover:bg-slate-800"
+                className="text-slate-400 hover:text-white p-1 rounded-lg hover:bg-slate-800 text-sm font-bold"
               >
                 ✕
               </button>
             </div>
 
-            {scoringSuccessMessage ? (
-              <div className="p-4 rounded-xl bg-emerald-500/20 border border-emerald-500/40 text-emerald-300 text-xs font-bold flex items-center gap-2 animate-in zoom-in-95">
-                <Check className="w-4 h-4 text-emerald-400 shrink-0" />
-                <span>{scoringSuccessMessage}</span>
+            {/* Select Game Dropdown */}
+            <div className="space-y-1.5">
+              <label className="text-xs font-bold text-amber-300 block">Active Game Event:</label>
+              <select
+                value={selectedGameForScoring.id}
+                onChange={(e) => {
+                  const match = sportsEvents.find((g) => g.id === e.target.value);
+                  if (match) setSelectedGameForScoring(match);
+                }}
+                className="w-full bg-slate-950 border border-slate-800 rounded-xl p-2.5 text-xs text-white focus:outline-hidden focus:border-amber-400"
+              >
+                {sportsEvents.map((g) => (
+                  <option key={g.id} value={g.id}>
+                    {g.title} ({g.time || 'Match Time'})
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* 4 Houses Placement Selector in Modal */}
+            <div className="space-y-3">
+              <label className="text-xs font-bold text-white block">
+                Assign Place to Each House:
+              </label>
+
+              <div className="space-y-2.5">
+                {houses.map((h) => {
+                  const scoreObj = selectedGameForScoring.scores?.find((s) => s.houseId === h.id);
+                  const currentPlace = scoreObj?.placement;
+                  const pts = scoreObj?.points || 0;
+
+                  return (
+                    <div
+                      key={h.id}
+                      className="p-3 rounded-xl bg-slate-950 border border-slate-800 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5"
+                    >
+                      <div className="flex items-center gap-2 min-w-0">
+                        <span
+                          className="w-3.5 h-3.5 rounded-full shrink-0 shadow-xs"
+                          style={{ backgroundColor: h.color }}
+                        />
+                        <div>
+                          <strong className="text-white text-xs block font-extrabold truncate">
+                            {h.name}
+                          </strong>
+                          <span className="text-[10px] text-slate-400">
+                            Current: <span className="font-bold text-amber-300">{pts} pts</span>
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* 1st, 2nd, 3rd, 4th, Clear pills */}
+                      <div className="flex items-center gap-1">
+                        {([1, 2, 3, 4] as const).map((place) => {
+                          const isSelected = currentPlace === place;
+                          return (
+                            <button
+                              key={place}
+                              type="button"
+                              onClick={() => {
+                                handleSetHousePlacement(
+                                  selectedGameForScoring,
+                                  h.id,
+                                  isSelected ? null : place
+                                );
+                                // Re-read updated game
+                                const refreshed = sportsEvents.find(
+                                  (g) => g.id === selectedGameForScoring.id
+                                );
+                                if (refreshed) setSelectedGameForScoring(refreshed);
+                              }}
+                              className={`px-2.5 py-1 rounded-lg text-xs font-black transition-all cursor-pointer border ${
+                                isSelected
+                                  ? place === 1
+                                    ? 'bg-amber-400 text-slate-950 border-amber-400 shadow-xs'
+                                    : place === 2
+                                    ? 'bg-slate-300 text-slate-950 border-slate-300'
+                                    : place === 3
+                                    ? 'bg-amber-700 text-white border-amber-600'
+                                    : 'bg-slate-700 text-white border-slate-600'
+                                  : 'bg-slate-900 text-slate-400 border-slate-800 hover:text-white'
+                              }`}
+                            >
+                              {place === 1
+                                ? '🥇 1st'
+                                : place === 2
+                                ? '🥈 2nd'
+                                : place === 3
+                                ? '🥉 3rd'
+                                : '4th'}
+                            </button>
+                          );
+                        })}
+
+                        {currentPlace && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              handleSetHousePlacement(selectedGameForScoring, h.id, null);
+                              const refreshed = sportsEvents.find(
+                                (g) => g.id === selectedGameForScoring.id
+                              );
+                              if (refreshed) setSelectedGameForScoring(refreshed);
+                            }}
+                            className="px-2 py-1 rounded-lg text-xs font-bold text-rose-400 hover:text-white bg-slate-900 hover:bg-rose-950 border border-slate-800"
+                            title="Clear placement"
+                          >
+                            ✕
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
-            ) : (
-              <form onSubmit={handleSubmitGameScore} className="space-y-4 text-xs">
-                {/* Step 1: Select Game Card */}
-                <div className="space-y-1.5">
-                  <label className="font-bold text-amber-300 block">
-                    1. Select Game Card:
-                  </label>
-                  <select
-                    value={scoringGameId}
-                    onChange={(e) => setScoringGameId(e.target.value)}
-                    className="w-full bg-slate-950 border border-slate-800 rounded-xl p-2.5 text-xs text-white focus:outline-hidden focus:border-amber-400"
-                  >
-                    {sportsEvents.map((g) => (
-                      <option key={g.id} value={g.id}>
-                        {g.title} ({g.time || 'Match Time'})
-                      </option>
-                    ))}
-                  </select>
-                </div>
+            </div>
 
-                {/* Step 2: Select Participating Student from the house roster */}
-                <div className="space-y-1.5">
-                  <label className="font-bold text-amber-300 block">
-                    2. Select Participating Student from House Roster:
-                  </label>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-48 overflow-y-auto p-1 bg-slate-950 border border-slate-800 rounded-xl">
-                    {availableParticipants.map((p) => {
-                      const isSelected = scoringStudentId === p.id;
-                      return (
-                        <button
-                          key={p.id}
-                          type="button"
-                          onClick={() => setScoringStudentId(p.id)}
-                          className={`p-2.5 rounded-lg border text-left transition-all cursor-pointer flex items-center justify-between ${
-                            isSelected
-                              ? 'bg-amber-400/20 border-amber-400 text-white font-bold'
-                              : 'bg-slate-900 border-slate-800 text-slate-300 hover:border-slate-700'
-                          }`}
-                        >
-                          <div className="min-w-0">
-                            <div className="flex items-center gap-1.5">
-                              <span
-                                className="w-2 h-2 rounded-full shrink-0"
-                                style={{ backgroundColor: p.houseColor }}
-                              />
-                              <span className="font-bold text-white truncate">{p.name}</span>
-                            </div>
-                            <span className="text-[10px] text-slate-400 block mt-0.5">
-                              {p.houseName} &bull; {p.role}
-                            </span>
-                          </div>
-
-                          {isSelected && <Check className="w-3.5 h-3.5 text-amber-400 shrink-0" />}
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-
-                {/* Step 3: Select Points (+5, +10, +25, +50) */}
-                <div className="space-y-1.5">
-                  <label className="font-bold text-amber-300 block">
-                    3. Select Points:
-                  </label>
-                  <div className="grid grid-cols-4 gap-2">
-                    {[5, 10, 25, 50].map((pts) => (
-                      <button
-                        key={pts}
-                        type="button"
-                        onClick={() => setScoringPoints(pts)}
-                        className={`py-2 rounded-xl text-center font-black text-sm transition-all cursor-pointer border ${
-                          scoringPoints === pts
-                            ? 'bg-amber-400 text-slate-950 border-amber-400 shadow-md'
-                            : 'bg-slate-950 text-slate-300 border-slate-800 hover:border-slate-700'
-                        }`}
-                      >
-                        +{pts}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Reason */}
-                <div className="space-y-1.5">
-                  <label className="font-bold text-slate-300 block">
-                    Reason / Performance Highlight:
-                  </label>
-                  <select
-                    value={scoringReason}
-                    onChange={(e) => setScoringReason(e.target.value)}
-                    className="w-full bg-slate-950 border border-slate-800 rounded-xl p-2 text-xs text-white focus:outline-hidden focus:border-amber-400 mb-1"
-                  >
-                    <option value="Won Round 2 Pull">Won Round 2 Pull</option>
-                    <option value="Fastest Lap Anchor Finish">Fastest Lap Anchor Finish</option>
-                    <option value="Anchor Performance">Anchor Performance</option>
-                    <option value="High Effort Lead">High Effort Lead</option>
-                    <option value="Great Sportsmanship">Great Sportsmanship</option>
-                    <option value="Baton Transition Mastery">Baton Transition Mastery</option>
-                  </select>
-
-                  <input
-                    type="text"
-                    placeholder="Or enter custom reason..."
-                    value={customReason}
-                    onChange={(e) => setCustomReason(e.target.value)}
-                    className="w-full bg-slate-950 border border-slate-800 rounded-xl p-2 text-xs text-white placeholder-slate-500 focus:outline-hidden focus:border-amber-400"
-                  />
-                </div>
-
-                {/* Step 4: Submit Score */}
-                <div className="pt-2 flex items-center justify-end gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setSelectedGameForScoring(null)}
-                    className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl font-bold cursor-pointer"
-                  >
-                    Cancel
-                  </button>
-
-                  <button
-                    type="submit"
-                    disabled={isScoringSubmitting}
-                    className="btn-hover-scale px-5 py-2 bg-amber-400 hover:bg-amber-300 text-slate-950 font-black rounded-xl shadow-md transition-all cursor-pointer disabled:opacity-50"
-                  >
-                    {isScoringSubmitting ? 'Submitting...' : 'Submit Score & Push Live'}
-                  </button>
-                </div>
-              </form>
-            )}
+            {/* Modal Footer */}
+            <div className="pt-2 flex items-center justify-end gap-2 border-t border-slate-800">
+              <button
+                type="button"
+                onClick={() => setSelectedGameForScoring(null)}
+                className="px-5 py-2.5 bg-amber-400 hover:bg-amber-300 text-slate-950 font-black rounded-xl text-xs transition-all cursor-pointer shadow-md"
+              >
+                Done / Close
+              </button>
+            </div>
           </div>
         </div>
       )}

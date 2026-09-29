@@ -180,7 +180,7 @@ export default function App() {
 
   const handleUpdateEventScores = (
     eventId: string,
-    houseScores: { houseId: string; points: number }[]
+    houseScores: { houseId: string; points: number; placement?: 1 | 2 | 3 | 4 }[]
   ) => {
     const updated = data.sportsEvents.map((evt) => {
       if (evt.id === eventId) {
@@ -310,7 +310,7 @@ export default function App() {
     const user: CurrentUser = { role: 'admin', adminUser: chosenAdmin, isAdmin: true };
     setCurrentUser(user);
     saveCurrentUser(user);
-    setIsAdminOpen(true);
+    setActiveTab('award');
   };
 
   const handleLogout = () => {
@@ -330,7 +330,7 @@ export default function App() {
   const handleHomeAdminLogin = (adminUser?: AdminUser) => {
     handleLoginAdmin(adminUser);
     setIsHomePageActive(false);
-    setActiveTab('standings');
+    setActiveTab('award');
   };
 
   const handleQuickAwardStudent = (studentId: string) => {
@@ -349,10 +349,8 @@ export default function App() {
     if (tab === 'award') {
       if (currentUser.role === 'public') {
         setIsLoginOpen(true);
-      } else if (currentUser.role === 'teacher') {
-        setActiveTab('award');
       } else {
-        handleOpenAddPointsModal();
+        setActiveTab('award');
       }
       return;
     }
@@ -454,9 +452,7 @@ export default function App() {
                   houseTotals={houseTotals}
                   currentUser={currentUser}
                   transactions={data.transactions}
-                  sportsEvents={data.sportsEvents}
                   onAwardPoints={handleAwardPoints}
-                  onAwardGameScore={handleAwardGameScore}
                   onUndoTransaction={handleDeleteTransaction}
                   onOpenFullAwardModal={(hId, sId) => handleOpenAddPointsModal(undefined, sId)}
                   onOpenExport={() => handleOpenExport('students')}
@@ -518,7 +514,7 @@ export default function App() {
               </div>
             )}
 
-            {/* TAB 6: EVENT SCHEDULE & MATCH CENTER */}
+            {/* TAB 6: HOUSE COMPETITIONS */}
             {activeTab === 'sports' && (
               <div ref={sportsSectionRef} className="animate-in fade-in duration-150">
                 <EventScheduleMatchCenter
@@ -527,6 +523,28 @@ export default function App() {
                   students={data.students}
                   currentUser={currentUser}
                   transactions={data.transactions}
+                  viewMode="overview"
+                  onNavigateToEvents={() => setActiveTab('sports-events')}
+                  onAwardGameScore={handleAwardGameScore}
+                  onUpdateEventScores={handleUpdateEventScores}
+                  onToggleEventActive={handleToggleEventActive}
+                  onUpdateSportsEvents={handleUpdateSportsEvents}
+                  onOpenCreateEvent={() => setIsAdminOpen(true)}
+                  onOpenExportSports={() => handleOpenExport('sports')}
+                />
+              </div>
+            )}
+
+            {/* TAB 7: HOUSE COMPETITIONS EVENTS */}
+            {activeTab === 'sports-events' && (
+              <div className="animate-in fade-in duration-150">
+                <EventScheduleMatchCenter
+                  sportsEvents={data.sportsEvents}
+                  houses={data.houses}
+                  students={data.students}
+                  currentUser={currentUser}
+                  transactions={data.transactions}
+                  viewMode="cards"
                   onAwardGameScore={handleAwardGameScore}
                   onUpdateEventScores={handleUpdateEventScores}
                   onToggleEventActive={handleToggleEventActive}
@@ -539,43 +557,39 @@ export default function App() {
           </>
         )}
 
-        {/* ROLE 3: ADMIN MODE - NO CHANGES, Full 8 tabs remain completely untouched */}
+        {/* ROLE 2: ADMIN MODE - Matches Teacher Dashboard Layout */}
         {currentUser.role === 'admin' && (
           <>
-            {/* TAB 1: House Standings */}
-            {activeTab === 'standings' && (
+            {/* TAB 1: QUICK POINT AWARDING (Default on open!) */}
+            {(activeTab === 'standings' || activeTab === 'award') && (
               <div className="space-y-6 animate-in fade-in duration-150">
-                {/* The 4 Main House Standings Cards */}
-                <HouseLeaderboard
+                <TeacherQuickAwardView
+                  houses={data.houses}
+                  students={data.students}
                   houseTotals={houseTotals}
-                  activeSportsEvent={activeSportsEvent}
-                  selectedHouseId={selectedHouseFilter}
-                  onSelectHouseFilter={(hId: string) => {
-                    setSelectedHouseFilter(hId);
-                    setActiveTab('students');
-                  }}
-                  onOpenAddPoints={() => handleOpenAddPointsModal()}
-                  onViewSportsStandings={() => setActiveTab('sports')}
-                  canAddPoints={true}
+                  currentUser={currentUser}
+                  transactions={data.transactions}
+                  onAwardPoints={handleAwardPoints}
+                  onUndoTransaction={handleDeleteTransaction}
+                  onOpenFullAwardModal={(hId, sId) => handleOpenAddPointsModal(undefined, sId)}
+                  onOpenExport={() => handleOpenExport('students')}
                 />
-
-                {/* Quick preview of Student Table */}
-                <div className="mt-8">
-                  <StudentTable
-                    students={data.students}
-                    houses={data.houses}
-                    studentSummaries={studentSummaries}
-                    currentUser={currentUser}
-                    onOpenStudentHistory={(id) => setSelectedStudentHistoryId(id)}
-                    onQuickAwardStudent={handleQuickAwardStudent}
-                    selectedHouseId={selectedHouseFilter}
-                    onSelectHouseFilter={setSelectedHouseFilter}
-                  />
-                </div>
               </div>
             )}
 
-            {/* TAB 2: Student Points (TP-G5) */}
+            {/* TAB 2: ADVANCED AWARDING */}
+            {activeTab === 'advanced-award' && (
+              <div className="animate-in fade-in duration-150">
+                <AdvancedAwardView
+                  students={data.students}
+                  houses={data.houses}
+                  currentUser={currentUser}
+                  onAwardPoints={handleAwardPoints}
+                />
+              </div>
+            )}
+
+            {/* TAB 3: STUDENT ROSTER */}
             {activeTab === 'students' && (
               <div className="animate-in fade-in duration-150">
                 <StudentTable
@@ -591,19 +605,7 @@ export default function App() {
               </div>
             )}
 
-            {/* TAB 3: House Cup & Podium */}
-            {activeTab === 'podium' && (
-              <PodiumView
-                houseTotals={houseTotals}
-                onOpenAddPoints={() => handleOpenAddPointsModal()}
-                onFilterHouse={(hId) => {
-                  setSelectedHouseFilter(hId);
-                  setActiveTab('students');
-                }}
-              />
-            )}
-
-            {/* TAB 4: Houses & Leadership Panel */}
+            {/* TAB 4: HOUSES & LEADERSHIP */}
             {activeTab === 'houses' && (
               <div className="animate-in fade-in duration-150">
                 <HousesLeadershipView
@@ -616,18 +618,20 @@ export default function App() {
               </div>
             )}
 
-            {/* TAB 5: Activity Log */}
+            {/* TAB 5: ACTIVITY LOG */}
             {activeTab === 'activity' && (
-              <ActivityLogView
-                transactions={data.transactions}
-                houses={data.houses}
-                currentUser={currentUser}
-                onDeleteTransaction={handleDeleteTransaction}
-                onOpenAddPoints={() => handleOpenAddPointsModal()}
-              />
+              <div className="animate-in fade-in duration-150">
+                <ActivityLogView
+                  transactions={data.transactions}
+                  houses={data.houses}
+                  currentUser={currentUser}
+                  onDeleteTransaction={handleDeleteTransaction}
+                  onOpenAddPoints={() => handleOpenAddPointsModal()}
+                />
+              </div>
             )}
 
-            {/* TAB 6: Event Schedule & Match Center */}
+            {/* TAB 6: HOUSE COMPETITIONS */}
             {activeTab === 'sports' && (
               <div ref={sportsSectionRef} className="animate-in fade-in duration-150">
                 <EventScheduleMatchCenter
@@ -636,6 +640,8 @@ export default function App() {
                   students={data.students}
                   currentUser={currentUser}
                   transactions={data.transactions}
+                  viewMode="overview"
+                  onNavigateToEvents={() => setActiveTab('sports-events')}
                   onAwardGameScore={handleAwardGameScore}
                   onUpdateEventScores={handleUpdateEventScores}
                   onToggleEventActive={handleToggleEventActive}
@@ -644,6 +650,38 @@ export default function App() {
                   onOpenExportSports={() => handleOpenExport('sports')}
                 />
               </div>
+            )}
+
+            {/* TAB 7: HOUSE COMPETITIONS EVENTS */}
+            {activeTab === 'sports-events' && (
+              <div className="animate-in fade-in duration-150">
+                <EventScheduleMatchCenter
+                  sportsEvents={data.sportsEvents}
+                  houses={data.houses}
+                  students={data.students}
+                  currentUser={currentUser}
+                  transactions={data.transactions}
+                  viewMode="cards"
+                  onAwardGameScore={handleAwardGameScore}
+                  onUpdateEventScores={handleUpdateEventScores}
+                  onToggleEventActive={handleToggleEventActive}
+                  onUpdateSportsEvents={handleUpdateSportsEvents}
+                  onOpenCreateEvent={() => setIsAdminOpen(true)}
+                  onOpenExportSports={() => handleOpenExport('sports')}
+                />
+              </div>
+            )}
+
+            {/* TAB 8: PODIUM VIEW (Supported if navigated to) */}
+            {activeTab === 'podium' && (
+              <PodiumView
+                houseTotals={houseTotals}
+                onOpenAddPoints={() => handleOpenAddPointsModal()}
+                onFilterHouse={(hId) => {
+                  setSelectedHouseFilter(hId);
+                  setActiveTab('students');
+                }}
+              />
             )}
           </>
         )}

@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState } from 'react';
 import {
   House,
   Student,
@@ -7,7 +7,6 @@ import {
   GradeLevel,
   ALL_GRADES,
   GRADE_LABELS,
-  SportsActivityEvent,
 } from '../types';
 import { HouseTotalSummary } from '../utils/storage';
 import {
@@ -15,7 +14,6 @@ import {
   Trophy,
   Plus,
   CheckCircle2,
-  Users,
   GraduationCap,
   RotateCcw,
   Check,
@@ -23,7 +21,6 @@ import {
   ChevronUp,
   Clock,
   BookOpen,
-  Flame,
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { AnimatedCounter } from './AnimatedCounter';
@@ -34,17 +31,7 @@ interface TeacherQuickAwardViewProps {
   houseTotals: HouseTotalSummary[];
   currentUser: CurrentUser;
   transactions?: PointTransaction[];
-  sportsEvents?: SportsActivityEvent[];
   onAwardPoints: (txs: Omit<PointTransaction, 'id' | 'timestamp'>[]) => void;
-  onAwardGameScore?: (
-    gameId: string,
-    studentId: string,
-    studentName: string,
-    houseId: string,
-    points: number,
-    reason: string,
-    gameTitle: string
-  ) => void;
   onUndoTransaction?: (txId: string) => void;
   onOpenFullAwardModal: (preselectedHouseId?: string, preselectedStudentId?: string) => void;
   onOpenExport?: () => void;
@@ -65,14 +52,12 @@ export const TeacherQuickAwardView: React.FC<TeacherQuickAwardViewProps> = ({
   houseTotals,
   currentUser,
   transactions = [],
-  sportsEvents = [],
   onAwardPoints,
-  onAwardGameScore,
   onUndoTransaction,
   onOpenFullAwardModal,
 }) => {
-  // Award Target Mode: 'house' | 'class' | 'game' (Sports Match Scoring Mode)
-  const [awardTarget, setAwardTarget] = useState<'house' | 'class' | 'game'>('house');
+  // Award Target Mode: 'house' | 'class'
+  const [awardTarget, setAwardTarget] = useState<'house' | 'class'>('house');
 
   // Selected Target: House
   const [selectedHouseId, setSelectedHouseId] = useState<string>(houses[0]?.id || '');
@@ -89,86 +74,15 @@ export const TeacherQuickAwardView: React.FC<TeacherQuickAwardViewProps> = ({
   const [successMessage, setSuccessMessage] = useState<string>('');
   const [undoMessage, setUndoMessage] = useState<string>('');
 
-  // Game Scoring Mode State
-  const [selectedGameId, setSelectedGameId] = useState<string>(sportsEvents[0]?.id || 'game-01');
-  const [selectedGameParticipantId, setSelectedGameParticipantId] = useState<string>('');
-  const [gamePoints, setGamePoints] = useState<number>(25);
-  const [gameReason, setGameReason] = useState<string>('Anchor Performance');
-  const [customGameReason, setCustomGameReason] = useState<string>('');
-
   // Recent Point History Drawer state (default open)
   const [isHistoryDrawerOpen, setIsHistoryDrawerOpen] = useState<boolean>(true);
 
-  const teacherName = currentUser.teacher?.name || currentUser.adminUser?.name || 'Teacher';
+  const teacherName =
+    currentUser.teacher?.name ||
+    currentUser.adminUser?.name ||
+    (currentUser.role === 'admin' ? 'Administrator' : 'Teacher');
 
   const selectedHouse = houses.find((h) => h.id === selectedHouseId);
-
-  // Active game for game scoring
-  const activeSelectedGame = useMemo(() => {
-    return sportsEvents.find((g) => g.id === selectedGameId) || sportsEvents[0];
-  }, [sportsEvents, selectedGameId]);
-
-  // Athletes roster for active game
-  const gameRoster = useMemo(() => {
-    if (!activeSelectedGame) return [];
-
-    if (activeSelectedGame.participatingStudentsWithRoles && activeSelectedGame.participatingStudentsWithRoles.length > 0) {
-      return activeSelectedGame.participatingStudentsWithRoles.map((p) => {
-        const fullStudent = students.find(
-          (s) => s.id === p.studentId || s.name.toLowerCase().includes(p.student_name.toLowerCase().split(' ')[0])
-        );
-        const houseObj = houses.find(
-          (h) => h.name.toLowerCase().includes(p.house.toLowerCase()) || h.id === fullStudent?.houseId
-        );
-        return {
-          id: fullStudent?.id || `participant-${p.student_name}`,
-          name: p.student_name,
-          houseName: houseObj?.name?.replace('House of ', '') || p.house,
-          houseId: houseObj?.id || 'house-stormchasers',
-          houseColor: houseObj?.color || '#2E90FA',
-          role: p.role || 'Member',
-          grade: fullStudent?.grade || 'Primary',
-        };
-      });
-    }
-
-    if (activeSelectedGame.participatingStudentIds && activeSelectedGame.participatingStudentIds.length > 0) {
-      return activeSelectedGame.participatingStudentIds
-        .map((sId) => students.find((s) => s.id === sId))
-        .filter(Boolean)
-        .map((s) => {
-          const houseObj = houses.find((h) => h.id === s!.houseId);
-          return {
-            id: s!.id,
-            name: s!.name,
-            houseName: houseObj?.name?.replace('House of ', '') || 'House',
-            houseId: s!.houseId,
-            houseColor: houseObj?.color || '#2E90FA',
-            role: 'Participant',
-            grade: s!.grade,
-          };
-        });
-    }
-
-    return houses.map((h) => {
-      const rep = students.find((s) => s.houseId === h.id);
-      return {
-        id: rep?.id || `rep-${h.id}`,
-        name: rep?.name || `${h.name.split(' ')[0]} Athlete`,
-        houseName: h.name.replace('House of ', ''),
-        houseId: h.id,
-        houseColor: h.color,
-        role: 'Team Captain',
-        grade: rep?.grade || 'Grade 3',
-      };
-    });
-  }, [activeSelectedGame, students, houses]);
-
-  React.useEffect(() => {
-    if (gameRoster.length > 0 && !selectedGameParticipantId) {
-      setSelectedGameParticipantId(gameRoster[0].id);
-    }
-  }, [gameRoster, selectedGameParticipantId]);
 
   // Filtered students for class awarding
   const studentsInSelectedClass = students.filter((s) => s.grade === selectedGrade);
@@ -181,54 +95,6 @@ export const TeacherQuickAwardView: React.FC<TeacherQuickAwardViewProps> = ({
 
   const handleQuickSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-
-    // 1. GAME SCORING MODE (Simplified 4-step sports scoring)
-    if (awardTarget === 'game') {
-      if (!activeSelectedGame) return;
-      const part = gameRoster.find((p) => p.id === selectedGameParticipantId) || gameRoster[0];
-      if (!part) return;
-
-      const pts = gamePoints;
-      const res = customGameReason.trim() || gameReason || 'Outstanding Match Performance';
-
-      if (onAwardGameScore) {
-        onAwardGameScore(
-          activeSelectedGame.id,
-          part.id,
-          part.name,
-          part.houseId,
-          pts,
-          res,
-          activeSelectedGame.title
-        );
-      } else {
-        onAwardPoints([
-          {
-            studentId: part.id,
-            studentName: part.name,
-            grade: (part.grade as any) || 'PK-4',
-            houseId: part.houseId,
-            type: 'merit',
-            amount: pts,
-            reason: `${part.name} (${part.houseName}) earned +${pts} in ${activeSelectedGame.title} for ${res}`,
-            category: 'Sports Week',
-            awardedBy: teacherName,
-          },
-        ]);
-      }
-
-      setSuccessMessage(
-        `Scored +${pts} points to ${part.name} (${part.houseName}) in ${activeSelectedGame.title}!`
-      );
-
-      confetti({
-        particleCount: 90,
-        spread: 70,
-        origin: { y: 0.6 },
-        colors: [part.houseColor, '#F59E0B', '#10B981'],
-      });
-      return;
-    }
 
     const reasonText = customReason.trim() || selectedReason;
 
@@ -380,7 +246,7 @@ export const TeacherQuickAwardView: React.FC<TeacherQuickAwardViewProps> = ({
               </h3>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 max-w-4xl">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 max-w-2xl">
               {/* Option A: Award by House */}
               <button
                 type="button"
@@ -446,196 +312,11 @@ export const TeacherQuickAwardView: React.FC<TeacherQuickAwardViewProps> = ({
                   </span>
                 )}
               </button>
-
-              {/* Option C: Game Scoring Mode */}
-              <button
-                type="button"
-                id="quick-award-mode-game"
-                onClick={() => setAwardTarget('game')}
-                className={`p-4 rounded-xl text-left border flex items-center justify-between gap-3 transition-all cursor-pointer ${
-                  awardTarget === 'game'
-                    ? 'ring-2 ring-amber-400 bg-amber-400/15 border-amber-400 text-white shadow-md'
-                    : 'bg-slate-800/80 border-slate-700/80 text-slate-300 hover:bg-slate-800 hover:border-slate-600'
-                }`}
-              >
-                <div className="flex items-center gap-3.5 min-w-0">
-                  <div
-                    className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${
-                      awardTarget === 'game' ? 'bg-amber-400 text-slate-950' : 'bg-slate-700 text-slate-300'
-                    }`}
-                  >
-                    <Flame className="w-5 h-5 text-rose-500" />
-                  </div>
-                  <div className="min-w-0">
-                    <p className="font-extrabold text-sm sm:text-base text-white">Game Scoring Mode</p>
-                    <p className="text-[11px] text-slate-400 truncate">
-                      Award participating match athletes
-                    </p>
-                  </div>
-                </div>
-                {awardTarget === 'game' && (
-                  <span className="w-5 h-5 rounded-full bg-amber-400 text-slate-950 flex items-center justify-center shrink-0">
-                    <Check className="w-3.5 h-3.5 stroke-[3]" />
-                  </span>
-                )}
-              </button>
             </div>
           </div>
 
-          {awardTarget === 'game' ? (
-            /* SIMPLIFIED GAME SCORING MODE (4 Steps) */
-            <div className="space-y-6">
-              {/* 1. Select Game Card */}
-              <div className="bg-slate-900/80 rounded-2xl p-4 sm:p-5 border border-slate-800 space-y-3">
-                <div className="flex items-center gap-2.5 mb-2">
-                  <span className="w-6 h-6 rounded-full bg-amber-400 text-slate-950 font-black text-xs flex items-center justify-center shrink-0">
-                    2
-                  </span>
-                  <h3 className="text-xs sm:text-sm font-black uppercase tracking-wider text-slate-200">
-                    1. Select Game Card
-                  </h3>
-                </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                  {sportsEvents.slice(0, 6).map((g) => {
-                    const isSelected = selectedGameId === g.id;
-                    return (
-                      <button
-                        key={g.id}
-                        type="button"
-                        onClick={() => setSelectedGameId(g.id)}
-                        className={`p-3.5 rounded-xl border text-left transition-all cursor-pointer flex flex-col justify-between gap-2 ${
-                          isSelected
-                            ? 'ring-2 ring-amber-400 bg-amber-400/15 border-amber-400 text-white shadow-md'
-                            : 'bg-slate-950 border-slate-800 text-slate-300 hover:border-slate-700'
-                        }`}
-                      >
-                        <div className="flex items-center justify-between gap-1">
-                          <span className="text-[10px] font-bold text-amber-400">{g.time || 'Match'}</span>
-                          <span className="text-[9px] font-bold bg-slate-800 px-1.5 py-0.5 rounded text-slate-300">
-                            {g.category}
-                          </span>
-                        </div>
-                        <h4 className="text-sm font-black text-white font-['Outfit'] truncate">{g.title}</h4>
-                        <span className="text-[10px] text-slate-400 truncate">{g.location || 'Central Field'}</span>
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-
-              {/* 2. Select Participating Student from House Roster */}
-              <div className="bg-slate-900/80 rounded-2xl p-4 sm:p-5 border border-slate-800 space-y-3">
-                <div className="flex items-center gap-2.5 mb-2">
-                  <span className="w-6 h-6 rounded-full bg-amber-400 text-slate-950 font-black text-xs flex items-center justify-center shrink-0">
-                    3
-                  </span>
-                  <h3 className="text-xs sm:text-sm font-black uppercase tracking-wider text-slate-200">
-                    2. Select Participating Student from House Roster
-                  </h3>
-                </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2.5">
-                  {gameRoster.map((p) => {
-                    const isSelected = selectedGameParticipantId === p.id;
-                    return (
-                      <button
-                        key={p.id}
-                        type="button"
-                        onClick={() => setSelectedGameParticipantId(p.id)}
-                        className={`p-3 rounded-xl border text-left transition-all cursor-pointer flex items-center justify-between gap-2 ${
-                          isSelected
-                            ? 'ring-2 ring-amber-400 bg-amber-400/20 border-amber-400 text-white font-bold shadow-md'
-                            : 'bg-slate-950 border-slate-800 text-slate-300 hover:border-slate-700'
-                        }`}
-                      >
-                        <div className="min-w-0">
-                          <div className="flex items-center gap-1.5">
-                            <span
-                              className="w-2.5 h-2.5 rounded-full shrink-0"
-                              style={{ backgroundColor: p.houseColor }}
-                            />
-                            <span className="font-bold text-white text-xs truncate">{p.name}</span>
-                          </div>
-                          <span className="text-[10px] text-slate-400 block mt-0.5">
-                            {p.houseName} &bull; <strong className="text-amber-300">{p.role}</strong>
-                          </span>
-                        </div>
-                        {isSelected && <Check className="w-4 h-4 text-amber-400 shrink-0" />}
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-
-              {/* 3. Select Points (+5, +10, +25, +50) */}
-              <div className="bg-slate-900/80 rounded-2xl p-4 sm:p-5 border border-slate-800 space-y-4">
-                <div className="flex items-center gap-2.5 mb-2">
-                  <span className="w-6 h-6 rounded-full bg-amber-400 text-slate-950 font-black text-xs flex items-center justify-center shrink-0">
-                    4
-                  </span>
-                  <h3 className="text-xs sm:text-sm font-black uppercase tracking-wider text-slate-200">
-                    3. Select Points &amp; Performance Reason
-                  </h3>
-                </div>
-
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 max-w-xl">
-                  {[5, 10, 25, 50].map((pts) => (
-                    <button
-                      key={pts}
-                      type="button"
-                      onClick={() => setGamePoints(pts)}
-                      className={`py-3 rounded-xl font-black text-base transition-all cursor-pointer border text-center ${
-                        gamePoints === pts
-                          ? 'bg-amber-400 text-slate-950 border-amber-400 shadow-md font-black'
-                          : 'bg-slate-950 text-slate-300 border-slate-800 hover:border-slate-700'
-                      }`}
-                    >
-                      +{pts} pts
-                    </button>
-                  ))}
-                </div>
-
-                <div className="space-y-1.5 max-w-xl">
-                  <label className="text-xs font-bold text-slate-300 block">Performance Highlight Reason:</label>
-                  <select
-                    value={gameReason}
-                    onChange={(e) => setGameReason(e.target.value)}
-                    className="w-full bg-slate-950 border border-slate-800 rounded-xl p-2.5 text-xs text-white focus:outline-hidden focus:border-amber-400 mb-2"
-                  >
-                    <option value="Won Round 2 Pull">Won Round 2 Pull</option>
-                    <option value="Anchor Performance">Anchor Performance</option>
-                    <option value="Fastest Lap Anchor Finish">Fastest Lap Anchor Finish</option>
-                    <option value="High Effort Lead">High Effort Lead</option>
-                    <option value="Great Sportsmanship">Great Sportsmanship</option>
-                    <option value="Baton Transition Mastery">Baton Transition Mastery</option>
-                  </select>
-
-                  <input
-                    type="text"
-                    placeholder="Or enter custom performance highlight..."
-                    value={customGameReason}
-                    onChange={(e) => setCustomGameReason(e.target.value)}
-                    className="w-full bg-slate-950 border border-slate-800 rounded-xl p-2.5 text-xs text-white placeholder-slate-500 focus:outline-hidden focus:border-amber-400"
-                  />
-                </div>
-
-                {/* 4. Tap Submit Score */}
-                <div className="pt-2">
-                  <button
-                    type="submit"
-                    className="btn-hover-scale px-8 py-3.5 rounded-xl bg-gradient-to-r from-amber-400 via-amber-300 to-amber-500 hover:from-amber-300 hover:to-amber-400 text-slate-950 font-black text-sm shadow-xl shadow-amber-400/25 cursor-pointer flex items-center gap-2 border border-amber-300"
-                  >
-                    <Sparkles className="w-4 h-4 text-slate-950" />
-                    <span>Submit Score to Home Portal Feed &amp; Podium</span>
-                  </button>
-                </div>
-              </div>
-            </div>
-          ) : (
-            <>
-              {/* STEP 2: Choose House OR Choose Class */}
-              <div className="bg-slate-900/80 rounded-2xl p-4 sm:p-5 border border-slate-800">
+          {/* STEP 2: Choose House OR Choose Class */}
+          <div className="bg-slate-900/80 rounded-2xl p-4 sm:p-5 border border-slate-800">
             <div className="flex items-center gap-2.5 mb-3">
               <span className="w-6 h-6 rounded-full bg-amber-400 text-slate-950 font-black text-xs flex items-center justify-center shrink-0">
                 2
@@ -945,8 +626,6 @@ export const TeacherQuickAwardView: React.FC<TeacherQuickAwardViewProps> = ({
               </span>
             </button>
           </div>
-            </>
-          )}
         </form>
 
         {/* RECENT POINT HISTORY DRAWER (Directly below the award button with Instant Undo) */}

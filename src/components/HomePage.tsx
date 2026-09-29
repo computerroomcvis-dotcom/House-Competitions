@@ -26,6 +26,7 @@ import {
   Clock,
   Calendar,
   Users,
+  CalendarCheck,
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { AnimatedCounter } from './AnimatedCounter';
@@ -91,8 +92,8 @@ export const HomePage: React.FC<HomePageProps> = ({
   // Active sports event
   const activeSports = sportsEvents.find((e) => e.isActive);
 
-  // Tabs for Home Screen: House Podium (default), House Standings, Sports Week
-  const [homeTab, setHomeTab] = useState<'podium' | 'sports' | 'standings'>('podium');
+  // Tabs for Home Screen: House Podium (default), House Standings, House Competitions, House Competitions Events
+  const [homeTab, setHomeTab] = useState<'podium' | 'sports' | 'standings' | 'sports-events'>('podium');
 
   // Key Student Participants & Athletes by House (for House Cards)
   const getHouseAthletes = useMemo(() => {
@@ -388,9 +389,9 @@ export const HomePage: React.FC<HomePageProps> = ({
         </div>
       </header>
 
-      {/* 2. MAIN BODY: SPLIT INTO CLEAN TABS (Podium, House Standings, Event Schedule & Match Center) */}
+      {/* 2. MAIN BODY: SPLIT INTO CLEAN TABS (Podium, House Standings, House Competitions) */}
       <main className="relative z-10 flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8 space-y-6">
-        {/* TABS BAR: House Podium (default), House Standings, Event Schedule & Match Center */}
+        {/* TABS BAR: House Podium (default), House Standings, House Competitions */}
         <div className="flex items-center justify-between pb-3 border-b border-slate-800/80 gap-2 overflow-x-auto no-scrollbar">
           <div className="flex items-center gap-2">
             {/* Tab 1: House Podium (Default on open!) */}
@@ -423,7 +424,7 @@ export const HomePage: React.FC<HomePageProps> = ({
               <span>House Standings</span>
             </button>
 
-            {/* Tab 3: Event Schedule & Match Center */}
+            {/* Tab 3: House Competitions */}
             <button
               type="button"
               id="home-tab-sports"
@@ -435,10 +436,28 @@ export const HomePage: React.FC<HomePageProps> = ({
               }`}
             >
               <Flame className="w-4 h-4 text-rose-500" />
-              <span>Event Schedule &amp; Match Center</span>
+              <span>House Competitions</span>
               <span className="inline-flex items-center gap-1 px-1.5 py-0.2 rounded-full text-[9px] font-black uppercase tracking-wider bg-rose-500/20 text-rose-300 border border-rose-500/30">
                 <span className="w-1.5 h-1.5 rounded-full bg-rose-500 animate-pulse" />
                 LIVE
+              </span>
+            </button>
+
+            {/* Tab 4: House Competitions Events */}
+            <button
+              type="button"
+              id="home-tab-sports-events"
+              onClick={() => setHomeTab('sports-events')}
+              className={`inline-flex items-center gap-2 px-4 py-2 rounded-xl text-xs sm:text-sm font-extrabold transition-all cursor-pointer ${
+                homeTab === 'sports-events'
+                  ? 'bg-amber-400 text-slate-950 shadow-md shadow-amber-400/20 font-black'
+                  : 'text-slate-400 hover:text-white hover:bg-slate-800'
+              }`}
+            >
+              <CalendarCheck className="w-4 h-4 text-amber-500" />
+              <span>House Competitions Events</span>
+              <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-md bg-slate-800 text-slate-300">
+                {sportsEvents.length} Events
               </span>
             </button>
           </div>
@@ -973,7 +992,7 @@ export const HomePage: React.FC<HomePageProps> = ({
         </div>
       )}
 
-      {/* TAB 3: EVENT SCHEDULE & MATCH CENTER */}
+      {/* TAB 3: HOUSE COMPETITIONS (Tournament Overview & Athlete Leaderboards) */}
       {homeTab === 'sports' && (
         <div className="space-y-6 animate-in fade-in duration-150">
           <EventScheduleMatchCenter
@@ -982,8 +1001,24 @@ export const HomePage: React.FC<HomePageProps> = ({
             students={students}
             currentUser={currentUser}
             transactions={transactions}
-            hideLiveTicker={true}
-            onAwardGameScore={onAwardGameScore || (() => {})}
+            hideLiveTicker={false}
+            viewMode="overview"
+            onNavigateToEvents={() => setHomeTab('sports-events')}
+          />
+        </div>
+      )}
+
+      {/* TAB 4: HOUSE COMPETITIONS EVENTS (The actual House Activity Cards & Match Placements) */}
+      {homeTab === 'sports-events' && (
+        <div className="space-y-6 animate-in fade-in duration-150">
+          <EventScheduleMatchCenter
+            sportsEvents={sportsEvents}
+            houses={houses}
+            students={students}
+            currentUser={currentUser}
+            transactions={transactions}
+            hideLiveTicker={false}
+            viewMode="cards"
           />
         </div>
       )}
