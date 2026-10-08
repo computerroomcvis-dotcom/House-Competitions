@@ -406,7 +406,6 @@ export default function App() {
           onAwardGameScore={handleAwardGameScore}
           onLoginTeacher={handleHomeTeacherLogin}
           onLoginAdmin={handleHomeAdminLogin}
-          onOpenExport={() => handleOpenExport('newsletter')}
         />
 
         {/* Target DOM Element for 5-Format Newsletter Exporter (html2canvas, html2pdf, Word, HTML, JSON) */}

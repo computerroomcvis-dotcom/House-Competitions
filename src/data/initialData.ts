@@ -1078,75 +1078,10 @@ export const INITIAL_STUDENTS: Student[] = [
 
 // Seed realistic starter transactions to showcase live leaderboards
 function generateSeedTransactions(): PointTransaction[] {
-  const categories = [
-    { name: 'Respect & Kindness', amt: 5 },
-    { name: 'Exemplary Effort', amt: 10 },
-    { name: 'Academic Achievement', amt: 10 },
-    { name: 'Leadership & Teamwork', amt: 5 },
-    { name: 'House Spirit', amt: 5 },
-  ];
-
-  const txs: PointTransaction[] = [];
-  let txId = 1;
-
-  // Award merits across students from each house
-  INITIAL_STUDENTS.forEach((student, index) => {
-    // Award 2 merits to each student
-    const cat = categories[index % categories.length];
-    txs.push({
-      id: `tx-${txId++}`,
-      studentId: student.id,
-      studentName: student.name,
-      grade: student.grade,
-      houseId: student.houseId,
-      type: 'merit',
-      amount: cat.amt,
-      category: cat.name,
-      reason: `Outstanding display of ${cat.name.toLowerCase()} in class activities`,
-      awardedBy: 'Brooklyn Wheldon',
-      awardedByEmail: 'wheldon.b@crestview.ac.th',
-      timestamp: new Date(Date.now() - (index * 3600000 + 1800000)).toISOString(),
-    });
-
-    // Award bonus points to prefects and selected active participants
-    if (student.isPrefect || index % 3 === 0) {
-      txs.push({
-        id: `tx-${txId++}`,
-        studentId: student.id,
-        studentName: student.name,
-        grade: student.grade,
-        houseId: student.houseId,
-        type: 'merit',
-        amount: student.isPrefect ? 15 : 10,
-        category: student.isPrefect ? 'Leadership & Teamwork' : 'House Spirit',
-        reason: student.isPrefect ? 'House Prefect leadership & assembly organization' : 'Active house assembly support',
-        awardedBy: 'Princess Manarondong',
-        awardedByEmail: 'manarondong.p@crestview.ac.th',
-        timestamp: new Date(Date.now() - (index * 1800000 + 600000)).toISOString(),
-      });
-    }
-  });
-
-  // Add live score ticker initial transaction from user brief
-  txs.unshift({
-    id: 'tx-live-ticker-tugofwar',
-    studentId: 'stu-sc-pk4-1',
-    studentName: 'Poomrapee W.',
-    grade: 'PK-4',
-    houseId: 'house-stormchasers',
-    type: 'merit',
-    amount: 15,
-    category: 'House Spirit',
-    reason: 'Won Round 2 Pull (Tug of War Championship)',
-    awardedBy: 'Faculty Referees',
-    awardedByEmail: 'sports@crestview.ac.th',
-    timestamp: '2026-02-23T10:42:00.000Z',
-  });
-
-  return txs;
+  return [];
 }
 
-export const INITIAL_TRANSACTIONS: PointTransaction[] = generateSeedTransactions();
+export const INITIAL_TRANSACTIONS: PointTransaction[] = [];
 
 export const MERIT_PRESETS = [
   { label: 'Exemplary Effort & Participation', points: 5 },

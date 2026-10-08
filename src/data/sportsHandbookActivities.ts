@@ -150,14 +150,9 @@ export const OFFICIAL_HANDBOOK_ACTIVITIES: SportsActivityEvent[] = [
     ],
     imageUrl:
       'https://images.unsplash.com/photo-1546519638-68e109498ffc?auto=format&fit=crop&w=1200&q=80',
-    isActive: true,
-    scores: [
-      { houseId: 'house-earthshakers', points: 70, placement: 1 },
-      { houseId: 'house-mountainhearts', points: 65, placement: 2 },
-      { houseId: 'house-stormchasers', points: 60, placement: 3 },
-      { houseId: 'house-thunderhooves', points: 2, placement: 4 },
-    ],
-    notes: 'Exciting start to House Competitions 2026 in Venue A5!',
+    isActive: false,
+    scores: [],
+    notes: '',
   },
   {
     id: 'game-2-basketball-shooting',
@@ -189,14 +184,9 @@ export const OFFICIAL_HANDBOOK_ACTIVITIES: SportsActivityEvent[] = [
     ],
     imageUrl:
       'https://images.unsplash.com/photo-1546519638-68e109498ffc?auto=format&fit=crop&w=1200&q=80',
-    isActive: true,
-    scores: [
-      { houseId: 'house-stormchasers', points: 40, placement: 1 },
-      { houseId: 'house-thunderhooves', points: 35, placement: 2 },
-      { houseId: 'house-mountainhearts', points: 30, placement: 3 },
-      { houseId: 'house-earthshakers', points: 2, placement: 4 },
-    ],
-    notes: 'Stormchasers scored top marks from beyond the three-point arc.',
+    isActive: false,
+    scores: [],
+    notes: '',
   },
   {
     id: 'game-3-painting',
@@ -230,13 +220,8 @@ export const OFFICIAL_HANDBOOK_ACTIVITIES: SportsActivityEvent[] = [
     imageUrl:
       'https://images.unsplash.com/photo-1579783900882-c0d3dad7b119?auto=format&fit=crop&w=1200&q=80',
     isActive: false,
-    scores: [
-      { houseId: 'house-mountainhearts', points: 30, placement: 1 },
-      { houseId: 'house-earthshakers', points: 25, placement: 2 },
-      { houseId: 'house-stormchasers', points: 20, placement: 3 },
-      { houseId: 'house-thunderhooves', points: 2, placement: 4 },
-    ],
-    notes: 'Vibrant house colors and elephant/ibex/eagle artwork displayed.',
+    scores: [],
+    notes: '',
   },
   {
     id: 'game-4-spelling-bee',
@@ -270,12 +255,7 @@ export const OFFICIAL_HANDBOOK_ACTIVITIES: SportsActivityEvent[] = [
     imageUrl:
       'https://images.unsplash.com/photo-1503676260728-1c00da094a0b?auto=format&fit=crop&w=1200&q=80',
     isActive: false,
-    scores: [
-      { houseId: 'house-thunderhooves', points: 20, placement: 1 },
-      { houseId: 'house-stormchasers', points: 15, placement: 2 },
-      { houseId: 'house-earthshakers', points: 10, placement: 3 },
-      { houseId: 'house-mountainhearts', points: 2, placement: 4 },
-    ],
+    scores: [],
   },
   {
     id: 'game-5-coding',

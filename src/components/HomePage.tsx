@@ -27,12 +27,10 @@ import {
   Calendar,
   Users,
   CalendarCheck,
-  Download,
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { AnimatedCounter } from './AnimatedCounter';
 import { EventScheduleMatchCenter } from './EventScheduleMatchCenter';
-import { ExportNewsletterDropdown } from './ExportNewsletterDropdown';
 
 interface HomePageProps {
   houses: House[];
@@ -57,7 +55,6 @@ interface HomePageProps {
   ) => void;
   onLoginTeacher: (teacher: TeacherUser) => void;
   onLoginAdmin: (adminUser?: AdminUser) => void;
-  onOpenExport?: () => void;
 }
 
 export const HomePage: React.FC<HomePageProps> = ({
@@ -75,7 +72,6 @@ export const HomePage: React.FC<HomePageProps> = ({
   onAwardGameScore,
   onLoginTeacher,
   onLoginAdmin,
-  onOpenExport,
 }) => {
   // Modal states for small buttons at top
   const [showTeacherModal, setShowTeacherModal] = useState(false);
@@ -156,70 +152,314 @@ export const HomePage: React.FC<HomePageProps> = ({
     };
   }, [sportsEvents, houses, students]);
 
-  // Podium order: 1st, 2nd, 3rd, 4th
-  const leader = houseTotals[0];
-  const second = houseTotals[1];
-  const third = houseTotals[2];
-  const fourth = houseTotals[3];
+  // Top toggle selector for Dual Podium: Option A: "annual" (default) vs Option B: "competitions"
+  const [podiumMode, setPodiumMode] = useState<'annual' | 'competitions'>('annual');
 
-  // Monthly newsletter star achievers by grade level (Early Years: TP, PK-3, PK-4, GK)
-  const earlyYearsAchievers = useMemo(() => {
-    const achieversData = [
+  // Filtered completed match results recorded in the House Competitions tab
+  const completedCompetitionMatches = useMemo(() => {
+    return sportsEvents.filter((game) => {
+      const hasCompletedNote = game.notes?.toLowerCase().includes('completed') || false;
+      const isInactiveWithPoints =
+        !game.isActive &&
+        (game.scores?.some((s) => (s.points || 0) > 0 || (s.placement || 0) > 0) ?? false);
+      const hasRecordedPlacements =
+        (game.scores?.filter((s) => s.placement && s.placement > 0).length ?? 0) >= 1;
+      return hasCompletedNote || isInactiveWithPoints || hasRecordedPlacements;
+    });
+  }, [sportsEvents]);
+
+  // House standings derived strictly from completed match results in House Competitions
+  const competitionHouseTotals = useMemo(() => {
+    const houseStats: Record<
+      string,
       {
-        grade: 'TP',
-        gradeTitle: 'Transition Primary',
-        studentName: 'Pongnapat Supakiatbanchorn',
-        houseName: 'House of Stormchasers',
-        houseId: 'house-stormchasers',
-        points: 15,
-        merits: '+15 merits',
-        badge: '',
-        mottoNote: 'Enthusiastic house participation & courteous collaboration',
+        house: House;
+        totalPoints: number;
+        completedMatchesCount: number;
+        firstPlaceCount: number;
+        secondPlaceCount: number;
+        thirdPlaceCount: number;
+        fourthPlaceCount: number;
+        topMatchesWon: string[];
+      }
+    > = {};
+
+    houses.forEach((h) => {
+      houseStats[h.id] = {
+        house: h,
+        totalPoints: 0,
+        completedMatchesCount: 0,
+        firstPlaceCount: 0,
+        secondPlaceCount: 0,
+        thirdPlaceCount: 0,
+        fourthPlaceCount: 0,
+        topMatchesWon: [],
+      };
+    });
+
+    completedCompetitionMatches.forEach((game) => {
+      (game.scores || []).forEach((sc) => {
+        if (houseStats[sc.houseId]) {
+          const pts = sc.points || 0;
+          houseStats[sc.houseId].totalPoints += pts;
+          if (pts > 0 || (sc.placement && sc.placement > 0)) {
+            houseStats[sc.houseId].completedMatchesCount += 1;
+          }
+          if (sc.placement === 1) {
+            houseStats[sc.houseId].firstPlaceCount += 1;
+            houseStats[sc.houseId].topMatchesWon.push(game.title);
+          } else if (sc.placement === 2) {
+            houseStats[sc.houseId].secondPlaceCount += 1;
+          } else if (sc.placement === 3) {
+            houseStats[sc.houseId].thirdPlaceCount += 1;
+          } else if (sc.placement === 4) {
+            houseStats[sc.houseId].fourthPlaceCount += 1;
+          }
+        }
+      });
+    });
+
+    const list = Object.values(houseStats);
+    list.sort((a, b) => {
+      if (b.totalPoints !== a.totalPoints) {
+        return b.totalPoints - a.totalPoints;
+      }
+      return b.firstPlaceCount - a.firstPlaceCount;
+    });
+
+    return list.map((item, idx) => ({
+      ...item,
+      rank: idx + 1,
+    }));
+  }, [houses, completedCompetitionMatches]);
+
+  // Unified dynamic podium standings based on active toggle
+  const activePodiumStandings = useMemo(() => {
+    if (podiumMode === 'annual') {
+      return houseTotals.map((item) => ({
+        house: item.house,
+        totalPoints: item.totalPoints,
+        rank: item.rank,
+        primaryMetric: `+${item.studentMerits} merits`,
+        secondaryMetric: `+${item.studentMerits} / -${item.studentDemerits}`,
+        detailBadge: 'Annual Points',
+        mascot: item.house.mascot,
+        motto: item.house.motto,
+      }));
+    }
+
+    // Option B: House Competitions Cup
+    return competitionHouseTotals.map((item) => ({
+      house: item.house,
+      totalPoints: item.totalPoints,
+      rank: item.rank,
+      primaryMetric:
+        item.firstPlaceCount > 0
+          ? `${item.firstPlaceCount} Gold Win${item.firstPlaceCount > 1 ? 's' : ''}`
+          : `${item.completedMatchesCount} Match${item.completedMatchesCount !== 1 ? 'es' : ''}`,
+      secondaryMetric: `${item.completedMatchesCount} match results recorded`,
+      detailBadge: 'Competitions Cup',
+      mascot: item.house.mascot,
+      motto: item.house.motto,
+    }));
+  }, [podiumMode, houseTotals, competitionHouseTotals]);
+
+  // Dynamically re-ranked 1st, 2nd, 3rd, and 4th place standings
+  const leader = activePodiumStandings[0];
+  const second = activePodiumStandings[1];
+  const third = activePodiumStandings[2];
+  const fourth = activePodiumStandings[3];
+
+  // Student net points map from point transactions
+  const studentPointsMap = useMemo(() => {
+    const map: Record<string, number> = {};
+    transactions.forEach((tx) => {
+      map[tx.studentId] =
+        (map[tx.studentId] || 0) + (tx.type === 'merit' ? tx.amount : -tx.amount);
+    });
+    return map;
+  }, [transactions]);
+
+  // Preschool Division Achievers (TP, PK-3, PK-4, GK)
+  const preschoolAchievers = useMemo(() => {
+    const gradeDefs = [
+      {
+        code: 'TP',
+        title: 'Transition Primary',
+        matcher: (g: string) =>
+          g.toUpperCase().includes('TP') || g.toLowerCase().includes('transition'),
+        fallbackName: 'Pongnapat Supakiatbanchorn',
+        fallbackHouseId: 'house-stormchasers',
+        fallbackPoints: 15,
+        fallbackMotto: 'Enthusiastic house participation & courteous collaboration',
+        fallbackBadge: '',
       },
       {
-        grade: 'PK-3',
-        gradeTitle: 'Pre-Kindergarten 3',
-        studentName: 'Thichanan Luengthong',
-        houseName: 'House of Earthshakers',
-        houseId: 'house-earthshakers',
-        points: 20,
-        merits: '+20 merits',
-        badge: 'House Star',
-        mottoNote: 'Patience in problem-solving & gracious kindness to classmates',
+        code: 'PK-3',
+        title: 'Pre-Kindergarten 3',
+        matcher: (g: string) =>
+          g.toUpperCase().includes('PK-3') || g.toUpperCase().includes('PK 3'),
+        fallbackName: 'Thichanan Luengthong',
+        fallbackHouseId: 'house-earthshakers',
+        fallbackPoints: 20,
+        fallbackMotto: 'Patience in problem-solving & gracious kindness to classmates',
+        fallbackBadge: 'House Star',
       },
       {
-        grade: 'PK-4',
-        gradeTitle: 'Pre-Kindergarten 4',
-        studentName: 'Poomrapee Worakanjanakul',
-        houseName: 'House of Stormchasers',
-        houseId: 'house-stormchasers',
-        points: 25,
-        merits: '+25 merits',
-        badge: 'Prefect',
+        code: 'PK-4',
+        title: 'Pre-Kindergarten 4',
+        matcher: (g: string) =>
+          g.toUpperCase().includes('PK-4') || g.toUpperCase().includes('PK 4'),
+        fallbackName: 'Poomrapee Worakanjanakul',
+        fallbackHouseId: 'house-stormchasers',
+        fallbackPoints: 25,
+        fallbackMotto:
+          'Exceptional academic initiative, active listening & peer mentorship',
+        fallbackBadge: 'Prefect',
         isOverallScholar: true,
-        mottoNote: 'Exceptional academic initiative, active listening & peer mentorship',
       },
       {
-        grade: 'GK-Emerald',
-        gradeTitle: 'Kindergarten',
-        studentName: 'Piyaphat Jaijaroen',
-        houseName: 'House of Stormchasers',
-        houseId: 'house-stormchasers',
-        points: 20,
-        merits: '+20 merits',
-        badge: '',
-        mottoNote: 'Curiosity in discovery & spirited devotion to house teamwork',
+        code: 'GK',
+        title: 'Kindergarten',
+        matcher: (g: string) =>
+          g.toUpperCase().includes('GK') || g.toLowerCase().includes('kindergarten'),
+        fallbackName: 'Piyaphat Jaijaroen',
+        fallbackHouseId: 'house-stormchasers',
+        fallbackPoints: 20,
+        fallbackMotto: 'Curiosity in discovery & spirited devotion to house teamwork',
+        fallbackBadge: 'House Star',
       },
     ];
 
-    return achieversData.map((item) => {
-      const houseObj = houses.find((h) => h.id === item.houseId || h.name === item.houseName);
+    return gradeDefs.map((def) => {
+      const matching = students.filter((s) => def.matcher(s.grade));
+      let bestStudent: Student | undefined = undefined;
+      let bestPoints = def.fallbackPoints;
+
+      for (const st of matching) {
+        const pts = studentPointsMap[st.id] || 0;
+        if (!bestStudent || pts > bestPoints || (pts === bestPoints && st.isPrefect)) {
+          bestStudent = st;
+          bestPoints = Math.max(pts, def.fallbackPoints);
+        }
+      }
+
+      const chosenStudentName = bestStudent ? bestStudent.name : def.fallbackName;
+      const chosenHouseId = bestStudent ? bestStudent.houseId : def.fallbackHouseId;
+      const houseObj = houses.find((h) => h.id === chosenHouseId);
+
       return {
-        ...item,
+        gradeCode: def.code,
+        gradeTitle: def.title,
+        studentName: chosenStudentName,
+        houseName: houseObj?.name || 'House of Stormchasers',
+        houseId: chosenHouseId,
+        houseColor: houseObj?.color || '#2E90FA',
+        points: bestPoints,
+        badge: bestStudent?.isPrefect ? 'Prefect' : def.fallbackBadge,
+        mottoNote: def.fallbackMotto,
+        isOverallScholar: def.isOverallScholar,
         house: houseObj,
       };
     });
-  }, [houses]);
+  }, [students, houses, studentPointsMap]);
+
+  // Elementary Division Achievers (Grade 1, Grade 2, Grade 3, Grade 4, Grade 5)
+  const elementaryAchievers = useMemo(() => {
+    const gradeDefs = [
+      {
+        code: 'G1',
+        title: 'Grade 1',
+        matcher: (g: string) =>
+          g.toLowerCase().includes('grade 1') || g.toUpperCase() === 'G1',
+        fallbackName: 'Nirin Ruangburop',
+        fallbackHouseId: 'house-earthshakers',
+        fallbackPoints: 20,
+        fallbackMotto:
+          'Exemplary sportsmanship, focus in reading & active classroom teamwork',
+        fallbackBadge: 'Relay Star',
+      },
+      {
+        code: 'G2',
+        title: 'Grade 2',
+        matcher: (g: string) =>
+          g.toLowerCase().includes('grade 2') || g.toUpperCase() === 'G2',
+        fallbackName: 'Supassara Angsuthornwilai',
+        fallbackHouseId: 'house-stormchasers',
+        fallbackPoints: 25,
+        fallbackMotto:
+          'Reliable student leadership, respectful demeanor & creative arts diligence',
+        fallbackBadge: 'Prefect',
+      },
+      {
+        code: 'G3',
+        title: 'Grade 3',
+        matcher: (g: string) =>
+          g.toLowerCase().includes('grade 3') || g.toUpperCase() === 'G3',
+        fallbackName: 'Theethat Sannamwong',
+        fallbackHouseId: 'house-stormchasers',
+        fallbackPoints: 20,
+        fallbackMotto:
+          'Inquisitive science inquiry, mathematical rigor & peer encouragement',
+        fallbackBadge: 'Inquiry Scholar',
+      },
+      {
+        code: 'G4',
+        title: 'Grade 4',
+        matcher: (g: string) =>
+          g.toLowerCase().includes('grade 4') || g.toUpperCase() === 'G4',
+        fallbackName: 'Pavika Vijitcharoenkul',
+        fallbackHouseId: 'house-thunderhooves',
+        fallbackPoints: 25,
+        fallbackMotto:
+          'Exemplary prefect duties, dependable assembly organization & house spirit',
+        fallbackBadge: 'Prefect',
+      },
+      {
+        code: 'G5',
+        title: 'Grade 5',
+        matcher: (g: string) =>
+          g.toLowerCase().includes('grade 5') || g.toUpperCase() === 'G5',
+        fallbackName: 'Thanadej Onsawai',
+        fallbackHouseId: 'house-earthshakers',
+        fallbackPoints: 25,
+        fallbackMotto:
+          'Outstanding leadership in inter-house competitions & academic focus',
+        fallbackBadge: 'Prefect',
+      },
+    ];
+
+    return gradeDefs.map((def) => {
+      const matching = students.filter((s) => def.matcher(s.grade));
+      let bestStudent: Student | undefined = undefined;
+      let bestPoints = def.fallbackPoints;
+
+      for (const st of matching) {
+        const pts = studentPointsMap[st.id] || 0;
+        if (!bestStudent || pts > bestPoints || (pts === bestPoints && st.isPrefect)) {
+          bestStudent = st;
+          bestPoints = Math.max(pts, def.fallbackPoints);
+        }
+      }
+
+      const chosenStudentName = bestStudent ? bestStudent.name : def.fallbackName;
+      const chosenHouseId = bestStudent ? bestStudent.houseId : def.fallbackHouseId;
+      const houseObj = houses.find((h) => h.id === chosenHouseId);
+
+      return {
+        gradeCode: def.code,
+        gradeTitle: def.title,
+        studentName: chosenStudentName,
+        houseName: houseObj?.name || 'House of Stormchasers',
+        houseId: chosenHouseId,
+        houseColor: houseObj?.color || '#2E90FA',
+        points: bestPoints,
+        badge: bestStudent?.isPrefect ? 'Prefect' : def.fallbackBadge,
+        mottoNote: def.fallbackMotto,
+        house: houseObj,
+      };
+    });
+  }, [students, houses, studentPointsMap]);
 
   // Confetti celebrations
   const triggerConfetti = (colors?: string[]) => {
@@ -352,14 +592,6 @@ export const HomePage: React.FC<HomePageProps> = ({
 
         {/* Small Top Action Buttons (Teacher Login & Admin Login) */}
         <div className="flex items-center gap-2 shrink-0">
-          {/* Export Newsletter Dropdown */}
-          {onOpenExport && (
-            <ExportNewsletterDropdown
-              onOpenModal={onOpenExport}
-              idPrefix="portal"
-            />
-          )}
-
           {/* Celebrate Button */}
           <button
             type="button"
@@ -404,20 +636,20 @@ export const HomePage: React.FC<HomePageProps> = ({
       {/* 2. MAIN BODY: SPLIT INTO CLEAN TABS (Podium, House Standings, House Competitions) */}
       <main className="relative z-10 flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8 space-y-6">
         {/* TABS BAR: House Podium (default), House Standings, House Competitions */}
-        <div className="flex items-center justify-between pb-3 border-b border-slate-800/80 gap-2 overflow-x-auto no-scrollbar">
-          <div className="flex items-center gap-2">
+        <div className="flex flex-col md:flex-row md:items-center justify-between pb-3 border-b border-slate-800/80 gap-3">
+          <div className="flex flex-wrap items-center gap-2">
             {/* Tab 1: House Podium (Default on open!) */}
             <button
               type="button"
               id="home-tab-podium"
               onClick={() => setHomeTab('podium')}
-              className={`inline-flex items-center gap-2 px-4 py-2 rounded-xl text-xs sm:text-sm font-extrabold transition-all cursor-pointer ${
+              className={`inline-flex items-center gap-2 px-3 sm:px-4 py-2 rounded-xl text-[10px] sm:text-xs md:text-sm font-extrabold transition-all cursor-pointer whitespace-nowrap ${
                 homeTab === 'podium'
                   ? 'bg-amber-400 text-slate-950 shadow-md shadow-amber-400/20'
                   : 'text-slate-400 hover:text-white hover:bg-slate-800'
               }`}
             >
-              <Trophy className="w-4 h-4 text-amber-500" />
+              <Trophy className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-amber-500" />
               <span>House Podium</span>
             </button>
 
@@ -426,13 +658,13 @@ export const HomePage: React.FC<HomePageProps> = ({
               type="button"
               id="home-tab-standings"
               onClick={() => setHomeTab('standings')}
-              className={`inline-flex items-center gap-2 px-4 py-2 rounded-xl text-xs sm:text-sm font-extrabold transition-all cursor-pointer ${
+              className={`inline-flex items-center gap-2 px-3 sm:px-4 py-2 rounded-xl text-[10px] sm:text-xs md:text-sm font-extrabold transition-all cursor-pointer whitespace-nowrap ${
                 homeTab === 'standings'
                   ? 'bg-amber-400 text-slate-950 shadow-md shadow-amber-400/20'
                   : 'text-slate-400 hover:text-white hover:bg-slate-800'
               }`}
             >
-              <Shield className="w-4 h-4 text-indigo-400" />
+              <Shield className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-indigo-400" />
               <span>House Standings</span>
             </button>
 
@@ -441,15 +673,15 @@ export const HomePage: React.FC<HomePageProps> = ({
               type="button"
               id="home-tab-sports"
               onClick={() => setHomeTab('sports')}
-              className={`inline-flex items-center gap-2 px-4 py-2 rounded-xl text-xs sm:text-sm font-extrabold transition-all cursor-pointer ${
+              className={`inline-flex items-center gap-2 px-3 sm:px-4 py-2 rounded-xl text-[10px] sm:text-xs md:text-sm font-extrabold transition-all cursor-pointer whitespace-nowrap ${
                 homeTab === 'sports'
                   ? 'bg-amber-400 text-slate-950 shadow-md shadow-amber-400/20 font-black'
                   : 'text-slate-400 hover:text-white hover:bg-slate-800'
               }`}
             >
-              <Flame className="w-4 h-4 text-rose-500" />
-              <span>House Competitions Results</span>
-              <span className="inline-flex items-center gap-1 px-1.5 py-0.2 rounded-full text-[9px] font-black uppercase tracking-wider bg-rose-500/20 text-rose-300 border border-rose-500/30">
+              <Flame className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-rose-500" />
+              <span>House Results</span>
+              <span className="hidden sm:inline-flex items-center gap-1 px-1.5 py-0.2 rounded-full text-[9px] font-black uppercase tracking-wider bg-rose-500/20 text-rose-300 border border-rose-500/30">
                 <span className="w-1.5 h-1.5 rounded-full bg-rose-500 animate-pulse" />
                 LIVE
               </span>
@@ -460,25 +692,27 @@ export const HomePage: React.FC<HomePageProps> = ({
               type="button"
               id="home-tab-sports-events"
               onClick={() => setHomeTab('sports-events')}
-              className={`inline-flex items-center gap-2 px-4 py-2 rounded-xl text-xs sm:text-sm font-extrabold transition-all cursor-pointer ${
+              className={`inline-flex items-center gap-2 px-3 sm:px-4 py-2 rounded-xl text-[10px] sm:text-xs md:text-sm font-extrabold transition-all cursor-pointer whitespace-nowrap ${
                 homeTab === 'sports-events'
                   ? 'bg-amber-400 text-slate-950 shadow-md shadow-amber-400/20 font-black'
                   : 'text-slate-400 hover:text-white hover:bg-slate-800'
               }`}
             >
-              <CalendarCheck className="w-4 h-4 text-amber-500" />
-              <span>House Competitions Events</span>
-              <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-md bg-slate-800 text-slate-300">
-                {sportsEvents.length} Events
+              <CalendarCheck className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-amber-500" />
+              <span>House Events</span>
+              <span className="hidden sm:inline-flex text-[9px] font-bold px-1.5 py-0.5 rounded-md bg-slate-800 text-slate-300">
+                {sportsEvents.length}
               </span>
             </button>
           </div>
 
-          <div className="flex items-center gap-3">
-            <div className="hidden sm:flex items-center gap-2 text-xs text-slate-400 font-semibold">
-              <span>Crestview School</span>
-              <span>&bull;</span>
-              <span className="text-amber-400 font-bold">{totalSchoolPoints} Total Points</span>
+          <div className="flex items-center gap-3 shrink-0">
+            <div className="flex items-center gap-2 text-[10px] sm:text-xs text-slate-400 font-semibold">
+              <span className="hidden lg:inline">Crestview School</span>
+              <span className="hidden lg:inline">&bull;</span>
+              <span className="text-amber-400 font-bold bg-amber-400/10 px-2 py-1 rounded-lg border border-amber-400/20">
+                {totalSchoolPoints} Total Points
+              </span>
             </div>
           </div>
         </div>
@@ -486,7 +720,7 @@ export const HomePage: React.FC<HomePageProps> = ({
         {/* TAB 1: HOUSE PODIUM (Default on open!) */}
         {homeTab === 'podium' && (
           <div className="space-y-8 animate-in fade-in duration-200">
-            {/* 1. UNIFIED HIGH-IMPACT HERO PODIUM HEADER */}
+            {/* 1. UNIFIED HIGH-IMPACT HERO PODIUM HEADER WITH DUAL LEADERBOARD TOGGLE */}
             <div
               id="hero-podium-header"
               className="relative bg-gradient-to-b from-[#131738] via-[#161B22] to-[#0D1117] rounded-3xl p-5 sm:p-8 text-white shadow-2xl border border-slate-800 overflow-hidden"
@@ -495,14 +729,86 @@ export const HomePage: React.FC<HomePageProps> = ({
               <div className="absolute top-0 right-0 w-96 h-96 bg-blue-600/10 rounded-full blur-3xl pointer-events-none -mr-20 -mt-20" />
               <div className="absolute bottom-1/3 left-1/4 w-80 h-80 bg-amber-500/10 rounded-full blur-3xl pointer-events-none" />
 
-              {/* Combined Top Hero Bar: Championship Spotlight & Celebrate Action */}
+              {/* Top Toggle Switch / Tab Selector: Option A (House Points 2026–2027) vs Option B (House Competitions Cup) */}
+              <div className="relative z-10 flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-5 mb-5 border-b border-slate-800/80">
+                <div className="flex items-center gap-2">
+                  <Trophy className="w-4 h-4 text-amber-400" />
+                  <span className="text-xs font-black uppercase tracking-wider text-slate-300">
+                    Dual Leaderboard Selector
+                  </span>
+                </div>
+
+                <div className="inline-flex p-1 rounded-2xl bg-slate-950/90 border border-slate-800 shadow-inner gap-1 self-start sm:self-auto">
+                  {/* Option A: House Points 2026–2027 */}
+                  <button
+                    type="button"
+                    id="toggle-podium-annual"
+                    onClick={() => {
+                      setPodiumMode('annual');
+                      const annLeader = houseTotals[0];
+                      if (annLeader) triggerConfetti([annLeader.house.color, '#F59E0B']);
+                    }}
+                    className={`relative px-3.5 sm:px-4 py-2 rounded-xl text-xs sm:text-sm font-extrabold transition-all duration-200 cursor-pointer flex items-center gap-2 ${
+                      podiumMode === 'annual'
+                        ? 'bg-amber-400 text-slate-950 shadow-md shadow-amber-400/25 font-black scale-[1.02]'
+                        : 'text-slate-400 hover:text-white hover:bg-slate-800/60'
+                    }`}
+                  >
+                    <Shield className={`w-3.5 h-3.5 sm:w-4 sm:h-4 ${podiumMode === 'annual' ? 'text-slate-950' : 'text-amber-400'}`} />
+                    <span>House Points 2026–2027</span>
+                    <span
+                      className={`text-[9px] sm:text-[10px] px-1.5 py-0.5 rounded-md font-bold uppercase ${
+                        podiumMode === 'annual'
+                          ? 'bg-slate-950/20 text-slate-950 font-black'
+                          : 'bg-slate-800 text-slate-400'
+                      }`}
+                    >
+                      Default
+                    </span>
+                  </button>
+
+                  {/* Option B: House Competitions Cup */}
+                  <button
+                    type="button"
+                    id="toggle-podium-competitions"
+                    onClick={() => {
+                      setPodiumMode('competitions');
+                      const compLeader = competitionHouseTotals[0];
+                      if (compLeader) triggerConfetti([compLeader.house.color, '#F59E0B']);
+                    }}
+                    className={`relative px-3.5 sm:px-4 py-2 rounded-xl text-xs sm:text-sm font-extrabold transition-all duration-200 cursor-pointer flex items-center gap-2 ${
+                      podiumMode === 'competitions'
+                        ? 'bg-gradient-to-r from-rose-500 to-amber-500 text-white shadow-md shadow-rose-500/25 font-black scale-[1.02]'
+                        : 'text-slate-400 hover:text-white hover:bg-slate-800/60'
+                    }`}
+                  >
+                    <Flame className={`w-3.5 h-3.5 sm:w-4 sm:h-4 ${podiumMode === 'competitions' ? 'text-white animate-pulse' : 'text-rose-400'}`} />
+                    <span>House Competitions Cup</span>
+                    <span
+                      className={`text-[9px] sm:text-[10px] px-1.5 py-0.5 rounded-md font-bold uppercase ${
+                        podiumMode === 'competitions'
+                          ? 'bg-black/25 text-white font-black'
+                          : 'bg-rose-500/20 text-rose-300'
+                      }`}
+                    >
+                      Matches Only
+                    </span>
+                  </button>
+                </div>
+              </div>
+
+              {/* Combined Hero Bar: Championship Spotlight & Celebrate Action */}
               <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-4 pb-6 border-b border-slate-800/80">
                 <div className="max-w-2xl">
                   {/* Pills */}
                   <div className="flex items-center gap-2 flex-wrap mb-2.5">
                     <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-extrabold uppercase tracking-wider bg-amber-500/20 text-amber-300 border border-amber-500/40 shadow-xs">
                       <Crown className="w-3.5 h-3.5 text-amber-400" />
-                      <span>CURRENT TERM LEADER &bull; 2026 HOUSE CUP</span>
+                      <span>
+                        {podiumMode === 'annual'
+                          ? 'CURRENT TERM LEADER • 2026–2027 HOUSE CUP'
+                          : 'TOURNAMENT LEADER • HOUSE COMPETITIONS CUP'}
+                      </span>
                     </span>
                     {leader && (
                       <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
@@ -514,7 +820,9 @@ export const HomePage: React.FC<HomePageProps> = ({
 
                   {/* Title */}
                   <h2 className="text-2xl sm:text-3xl lg:text-4xl font-extrabold font-['Outfit'] tracking-tight text-white mb-1.5">
-                    House Cup &amp; Stepped Podium Standings
+                    {podiumMode === 'annual'
+                      ? 'House Cup & Stepped Podium Standings'
+                      : 'House Competitions Cup Standings'}
                   </h2>
 
                   {/* Leader details subtitle */}
@@ -524,10 +832,16 @@ export const HomePage: React.FC<HomePageProps> = ({
                       <strong className="text-amber-400 font-extrabold">
                         {leader.totalPoints} points
                       </strong>{' '}
-                      &bull; Mascot: <span className="text-white font-semibold">{leader.house.mascot}</span> &bull; Motto:{' '}
-                      <span className="italic text-slate-200">&ldquo;{leader.house.motto}&rdquo;</span>.
+                      ({leader.primaryMetric}) &bull; Mascot:{' '}
+                      <span className="text-white font-semibold">{leader.mascot}</span> &bull; Motto:{' '}
+                      <span className="italic text-slate-200">&ldquo;{leader.motto}&rdquo;</span>.
                     </p>
                   )}
+                  <p className="text-[11px] text-slate-400 mt-1">
+                    {podiumMode === 'annual'
+                      ? 'Aggregates all points accumulated this school year across merits, academic awards, daily house points, and sports events.'
+                      : 'Standings strictly derived from completed match results recorded in the House Competitions tab.'}
+                  </p>
                 </div>
 
                 {/* Right: Celebrate Leader Action Button */}
@@ -535,7 +849,9 @@ export const HomePage: React.FC<HomePageProps> = ({
                   <div className="relative z-10 flex items-center gap-2.5 shrink-0 self-start md:self-auto">
                     <button
                       type="button"
-                      onClick={() => triggerConfetti([leader.house.color, '#F59E0B', '#3B82F6', '#10B981'])}
+                      onClick={() =>
+                        triggerConfetti([leader.house.color, '#F59E0B', '#3B82F6', '#10B981'])
+                      }
                       className="btn-hover-scale px-4 py-2.5 bg-gradient-to-r from-amber-400 via-amber-300 to-amber-500 hover:from-amber-300 hover:to-amber-400 text-slate-950 font-black rounded-xl flex items-center justify-center gap-2 shadow-lg shadow-amber-500/25 text-xs sm:text-sm border border-amber-300 transition-all cursor-pointer"
                     >
                       <Sparkles className="w-4 h-4 text-slate-950" />
@@ -546,7 +862,7 @@ export const HomePage: React.FC<HomePageProps> = ({
               </div>
 
               {/* VISUAL STEPPED PODIUM (2nd, 1st Champion, 3rd, 4th) */}
-              {/* Wraps gracefully on mobile screens & eliminates all house name truncation */}
+              {/* Dynamically re-ranks 1st, 2nd, 3rd, and 4th place podium standings and total points */}
               <div className="relative z-10 flex flex-wrap sm:flex-nowrap items-end justify-center gap-3 sm:gap-6 pt-10 sm:pt-14 pb-4 max-w-4xl mx-auto">
                 {/* 2nd Place (Silver) */}
                 {second && (
@@ -575,10 +891,10 @@ export const HomePage: React.FC<HomePageProps> = ({
                       </span>
                       <div className="text-center">
                         <p className="text-[10px] sm:text-xs font-semibold text-white/95">
-                          +{second.studentMerits} merits
+                          {second.primaryMetric}
                         </p>
                         <p className="text-[10px] text-white/85 font-medium hidden sm:block">
-                          {second.house.mascot}
+                          {second.mascot}
                         </p>
                       </div>
                     </div>
@@ -619,10 +935,10 @@ export const HomePage: React.FC<HomePageProps> = ({
                           Champions
                         </p>
                         <p className="text-[10px] sm:text-xs text-white/95">
-                          +{leader.studentMerits} / -{leader.studentDemerits}
+                          {leader.primaryMetric}
                         </p>
                         <p className="text-[10px] sm:text-xs text-white/85 hidden sm:block font-semibold">
-                          {leader.house.mascot}
+                          {leader.mascot}
                         </p>
                       </div>
                     </div>
@@ -656,10 +972,10 @@ export const HomePage: React.FC<HomePageProps> = ({
                       </span>
                       <div className="text-center">
                         <p className="text-[10px] sm:text-xs font-semibold text-white/95">
-                          +{third.studentMerits} merits
+                          {third.primaryMetric}
                         </p>
                         <p className="text-[10px] text-white/85 font-medium hidden sm:block">
-                          {third.house.mascot}
+                          {third.mascot}
                         </p>
                       </div>
                     </div>
@@ -693,7 +1009,7 @@ export const HomePage: React.FC<HomePageProps> = ({
                       </span>
                       <div className="text-center">
                         <p className="text-[9px] sm:text-[10px] text-white/90">
-                          +{fourth.studentMerits} merits
+                          {fourth.primaryMetric}
                         </p>
                       </div>
                     </div>
@@ -702,8 +1018,8 @@ export const HomePage: React.FC<HomePageProps> = ({
               </div>
             </div>
 
-            {/* 2. MONTHLY STAR ACHIEVERS BY GRADE LEVEL (Mirroring Monthly Newsletter Layout) */}
-            <div className="space-y-4 pt-2">
+            {/* 2. SPLIT MONTHLY STAR ACHIEVERS (PRESCHOOL VS ELEMENTARY) */}
+            <div className="space-y-6 pt-2">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-2">
                 <div className="flex items-center gap-2.5">
                   <div className="w-9 h-9 rounded-xl bg-amber-400/20 text-amber-400 flex items-center justify-center shrink-0">
@@ -714,7 +1030,7 @@ export const HomePage: React.FC<HomePageProps> = ({
                       Monthly Star Achievers by Grade Level
                     </h3>
                     <p className="text-xs text-slate-400">
-                      Early Years Division (TP &ndash; GK) &bull; Official Faculty Commendation Bulletin
+                      Preschool &amp; Elementary Divisions &bull; Official Faculty Commendation Bulletin
                     </p>
                   </div>
                 </div>
@@ -722,7 +1038,7 @@ export const HomePage: React.FC<HomePageProps> = ({
                 <div className="flex items-center gap-2">
                   <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-slate-800 text-slate-300 border border-slate-700">
                     <Star className="w-3.5 h-3.5 text-amber-400 fill-amber-400" />
-                    <span>September 2026 Bulletin Edition</span>
+                    <span>Academic Year 2026–2027 Bulletin</span>
                   </span>
                 </div>
               </div>
@@ -744,7 +1060,7 @@ export const HomePage: React.FC<HomePageProps> = ({
                       </span>
                     </h4>
                     <p className="text-xs text-slate-300 mt-0.5">
-                      House of Stormchasers &bull; Grade PK-4 &bull; Recognized for highest overall house point contribution (25 points).
+                      House of Stormchasers &bull; Grade PK-4 &bull; Recognized for top house point contribution (25 points).
                     </p>
                   </div>
                 </div>
@@ -759,73 +1075,196 @@ export const HomePage: React.FC<HomePageProps> = ({
                 </button>
               </div>
 
-              {/* 4 Grade Level Cards (TP, PK-3, PK-4, GK) */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                {earlyYearsAchievers.map((achiever) => {
-                  const houseColor = achiever.house?.color || '#2E90FA';
-                  return (
-                    <div
-                      key={achiever.grade}
-                      onClick={() => triggerConfetti([houseColor, '#F59E0B'])}
-                      className="card-hover-lift bg-[#161B22] rounded-2xl border border-slate-800 p-5 flex flex-col justify-between gap-4 relative overflow-hidden transition-all shadow-md hover:border-slate-700 cursor-pointer group"
-                    >
-                      {/* House Accent Top Line */}
-                      <div
-                        className="absolute top-0 left-0 right-0 h-1.5"
-                        style={{ backgroundColor: houseColor }}
-                      />
+              {/* DIVISION BLOCK 1: PRESCHOOL DIVISION (TP, PK-3, PK-4, GK) */}
+              <div className="space-y-3.5 bg-slate-900/60 border border-slate-800/80 rounded-2xl p-4 sm:p-5">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-2 border-b border-slate-800/70">
+                  <div className="flex items-center gap-2">
+                    <span className="w-7 h-7 rounded-lg bg-pink-500/20 text-pink-300 flex items-center justify-center text-xs font-black">
+                      🧸
+                    </span>
+                    <div>
+                      <h4 className="text-base sm:text-lg font-black text-white font-['Outfit']">
+                        Preschool Division Block
+                      </h4>
+                      <p className="text-[11px] text-slate-400">
+                        Top student achievers for Transition Primary (TP), Pre-Kindergarten 3 (PK-3), Pre-Kindergarten 4 (PK-4), and Kindergarten (GK)
+                      </p>
+                    </div>
+                  </div>
+                  <span className="self-start sm:self-auto text-[10px] font-bold px-2 py-0.5 rounded-md bg-slate-800 text-slate-300 border border-slate-700">
+                    4 Grade Levels
+                  </span>
+                </div>
 
-                      <div>
-                        {/* Header: Grade pill & Badge */}
-                        <div className="flex items-center justify-between gap-2 mb-3">
+                {/* 4 Grade Level Cards (TP, PK-3, PK-4, GK) */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                  {preschoolAchievers.map((achiever) => {
+                    const houseColor = achiever.houseColor || '#2E90FA';
+                    return (
+                      <div
+                        key={achiever.gradeCode}
+                        onClick={() => triggerConfetti([houseColor, '#F59E0B'])}
+                        className="card-hover-lift bg-[#161B22] rounded-2xl border border-slate-800 p-4 sm:p-5 flex flex-col justify-between gap-3.5 relative overflow-hidden transition-all shadow-md hover:border-slate-700 cursor-pointer group"
+                      >
+                        {/* House Accent Top Line */}
+                        <div
+                          className="absolute top-0 left-0 right-0 h-1.5"
+                          style={{ backgroundColor: houseColor }}
+                        />
+
+                        <div>
+                          {/* Header: Grade pill & Star/Prefect Badge */}
+                          <div className="flex items-center justify-between gap-2 mb-2.5">
+                            <span
+                              className="px-2.5 py-0.5 rounded-full text-xs font-black tracking-wide text-white shadow-xs"
+                              style={{ backgroundColor: houseColor }}
+                            >
+                              {achiever.gradeCode}
+                            </span>
+                            {achiever.badge && (
+                              <span className="px-2 py-0.5 rounded-full text-[10px] font-black uppercase bg-amber-400/20 text-amber-300 border border-amber-400/40">
+                                {achiever.badge}
+                              </span>
+                            )}
+                          </div>
+
+                          {/* Student Name */}
+                          <h5 className="text-sm sm:text-base font-black text-white font-['Outfit'] leading-snug group-hover:text-amber-300 transition-colors">
+                            {achiever.studentName}
+                          </h5>
+
+                          {/* Grade Title */}
+                          <span className="text-[11px] font-semibold text-slate-400 block mt-0.5">
+                            {achiever.gradeTitle}
+                          </span>
+
+                          {/* House Badge and Color */}
+                          <div className="flex items-center gap-1.5 text-xs font-semibold text-slate-300 mt-2">
+                            <span
+                              className="w-2.5 h-2.5 rounded-full shrink-0 shadow-xs"
+                              style={{ backgroundColor: houseColor }}
+                            />
+                            <span className="truncate">{achiever.houseName}</span>
+                          </div>
+
+                          {/* Faculty Commendation Notes */}
+                          <p className="text-[11px] text-slate-400 italic mt-2.5 line-clamp-2 leading-relaxed">
+                            &ldquo;{achiever.mottoNote}&rdquo;
+                          </p>
+                        </div>
+
+                        {/* Bottom: Earned Points Pill */}
+                        <div className="pt-3 border-t border-slate-800/80 flex items-center justify-between">
+                          <span className="text-[11px] font-bold text-slate-400">
+                            Earned Points:
+                          </span>
                           <span
-                            className="px-2.5 py-0.5 rounded-full text-xs font-black tracking-wide text-white shadow-xs"
+                            className="px-2.5 py-1 rounded-xl text-xs font-black text-white shadow-xs"
                             style={{ backgroundColor: houseColor }}
                           >
-                            {achiever.grade}
+                            <AnimatedCounter value={achiever.points} suffix=" pts" />
                           </span>
-                          {achiever.badge && (
-                            <span className="px-2 py-0.5 rounded-full text-[10px] font-black uppercase bg-amber-400/20 text-amber-300 border border-amber-400/40">
-                              {achiever.badge}
-                            </span>
-                          )}
                         </div>
-
-                        {/* Student Name */}
-                        <h4 className="text-base sm:text-lg font-black text-white font-['Outfit'] leading-snug group-hover:text-amber-300 transition-colors">
-                          {achiever.studentName}
-                        </h4>
-
-                        {/* House and Mascot */}
-                        <div className="flex items-center gap-1.5 text-xs font-semibold text-slate-300 mt-1.5">
-                          <span
-                            className="w-2.5 h-2.5 rounded-full shrink-0"
-                            style={{ backgroundColor: houseColor }}
-                          />
-                          <span className="truncate">{achiever.houseName}</span>
-                        </div>
-
-                        {/* Faculty commendation notes */}
-                        <p className="text-[11px] text-slate-400 italic mt-2.5 line-clamp-2 leading-relaxed">
-                          &ldquo;{achiever.mottoNote}&rdquo;
-                        </p>
                       </div>
+                    );
+                  })}
+                </div>
+              </div>
 
-                      {/* Bottom: Points count pill */}
-                      <div className="pt-3 border-t border-slate-800/80 flex items-center justify-between">
-                        <span className="text-[11px] font-bold text-slate-400">
-                          Net Contribution:
-                        </span>
-                        <span
-                          className="px-2.5 py-1 rounded-xl text-xs font-black text-white"
-                          style={{ backgroundColor: houseColor }}
-                        >
-                          <AnimatedCounter value={achiever.points} suffix=" pts" />
-                        </span>
-                      </div>
+              {/* DIVISION BLOCK 2: ELEMENTARY DIVISION (Grade 1, Grade 2, Grade 3, Grade 4, Grade 5) */}
+              <div className="space-y-3.5 bg-slate-900/60 border border-slate-800/80 rounded-2xl p-4 sm:p-5">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-2 border-b border-slate-800/70">
+                  <div className="flex items-center gap-2">
+                    <span className="w-7 h-7 rounded-lg bg-indigo-500/20 text-indigo-300 flex items-center justify-center text-xs font-black">
+                      🎒
+                    </span>
+                    <div>
+                      <h4 className="text-base sm:text-lg font-black text-white font-['Outfit']">
+                        Elementary Division Block
+                      </h4>
+                      <p className="text-[11px] text-slate-400">
+                        Top student achievers for Grade 1 (G1), Grade 2 (G2), Grade 3 (G3), Grade 4 (G4), and Grade 5 (G5)
+                      </p>
                     </div>
-                  );
-                })}
+                  </div>
+                  <span className="self-start sm:self-auto text-[10px] font-bold px-2 py-0.5 rounded-md bg-slate-800 text-slate-300 border border-slate-700">
+                    5 Grade Levels
+                  </span>
+                </div>
+
+                {/* 5 Grade Level Cards (G1, G2, G3, G4, G5) */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
+                  {elementaryAchievers.map((achiever) => {
+                    const houseColor = achiever.houseColor || '#2E90FA';
+                    return (
+                      <div
+                        key={achiever.gradeCode}
+                        onClick={() => triggerConfetti([houseColor, '#F59E0B'])}
+                        className="card-hover-lift bg-[#161B22] rounded-2xl border border-slate-800 p-4 sm:p-5 flex flex-col justify-between gap-3.5 relative overflow-hidden transition-all shadow-md hover:border-slate-700 cursor-pointer group"
+                      >
+                        {/* House Accent Top Line */}
+                        <div
+                          className="absolute top-0 left-0 right-0 h-1.5"
+                          style={{ backgroundColor: houseColor }}
+                        />
+
+                        <div>
+                          {/* Header: Grade pill & Star/Prefect Badge */}
+                          <div className="flex items-center justify-between gap-2 mb-2.5">
+                            <span
+                              className="px-2.5 py-0.5 rounded-full text-xs font-black tracking-wide text-white shadow-xs"
+                              style={{ backgroundColor: houseColor }}
+                            >
+                              {achiever.gradeCode}
+                            </span>
+                            {achiever.badge && (
+                              <span className="px-2 py-0.5 rounded-full text-[10px] font-black uppercase bg-amber-400/20 text-amber-300 border border-amber-400/40">
+                                {achiever.badge}
+                              </span>
+                            )}
+                          </div>
+
+                          {/* Student Name */}
+                          <h5 className="text-sm sm:text-base font-black text-white font-['Outfit'] leading-snug group-hover:text-amber-300 transition-colors">
+                            {achiever.studentName}
+                          </h5>
+
+                          {/* Grade Title */}
+                          <span className="text-[11px] font-semibold text-slate-400 block mt-0.5">
+                            {achiever.gradeTitle}
+                          </span>
+
+                          {/* House Badge and Color */}
+                          <div className="flex items-center gap-1.5 text-xs font-semibold text-slate-300 mt-2">
+                            <span
+                              className="w-2.5 h-2.5 rounded-full shrink-0 shadow-xs"
+                              style={{ backgroundColor: houseColor }}
+                            />
+                            <span className="truncate">{achiever.houseName}</span>
+                          </div>
+
+                          {/* Faculty Commendation Notes */}
+                          <p className="text-[11px] text-slate-400 italic mt-2.5 line-clamp-2 leading-relaxed">
+                            &ldquo;{achiever.mottoNote}&rdquo;
+                          </p>
+                        </div>
+
+                        {/* Bottom: Earned Points Pill */}
+                        <div className="pt-3 border-t border-slate-800/80 flex items-center justify-between">
+                          <span className="text-[11px] font-bold text-slate-400">
+                            Earned Points:
+                          </span>
+                          <span
+                            className="px-2.5 py-1 rounded-xl text-xs font-black text-white shadow-xs"
+                            style={{ backgroundColor: houseColor }}
+                          >
+                            <AnimatedCounter value={achiever.points} suffix=" pts" />
+                          </span>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
               </div>
             </div>
           </div>
@@ -1015,8 +1454,8 @@ export const HomePage: React.FC<HomePageProps> = ({
             transactions={transactions}
             hideLiveTicker={false}
             viewMode="overview"
+            isReadOnly={true}
             onNavigateToEvents={() => setHomeTab('sports-events')}
-            onOpenExportSports={onOpenExport}
           />
         </div>
       )}
@@ -1032,7 +1471,7 @@ export const HomePage: React.FC<HomePageProps> = ({
             transactions={transactions}
             hideLiveTicker={false}
             viewMode="cards"
-            onOpenExportSports={onOpenExport}
+            isReadOnly={true}
           />
         </div>
       )}

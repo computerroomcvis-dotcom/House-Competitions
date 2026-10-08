@@ -27,35 +27,7 @@ export const DEFAULT_EVENT_SCHEDULE: EventScheduleItem[] = [
   },
 ];
 
-export const DEFAULT_LIVE_SCORE_TICKER: LiveScoreTickerItem[] = [
-  {
-    id: 'ticker-1',
-    timestamp: '10:42 AM',
-    game_title: 'Tug of War',
-    student_name: 'Poomrapee W.',
-    house: 'Stormchasers',
-    points_added: 15,
-    reason: 'Won Round 2 Pull',
-  },
-  {
-    id: 'ticker-2',
-    timestamp: '09:45 AM',
-    game_title: 'Inter-House Sprint Relays',
-    student_name: 'Seerat Agarwal',
-    house: 'Mountainhearts',
-    points_added: 20,
-    reason: 'Anchor Leg 100m Dash Victory',
-  },
-  {
-    id: 'ticker-3',
-    timestamp: '09:18 AM',
-    game_title: 'Sprint Relays Heat 1',
-    student_name: 'Nirin Ruangburop',
-    house: 'Earthshakers',
-    points_added: 10,
-    reason: 'Flawless Baton Transition',
-  },
-];
+export const DEFAULT_LIVE_SCORE_TICKER: LiveScoreTickerItem[] = [];
 
 export const FEATURED_SPORTS_GAMES: SportsActivityEvent[] = [
   {
@@ -78,7 +50,6 @@ export const FEATURED_SPORTS_GAMES: SportsActivityEvent[] = [
       secondPlace: 50,
       thirdPlace: 30,
       fourthPlace: 20,
-      bonusNotes: 'Won Round 2 Pull: +15 bonus points awarded to Stormchasers anchor',
     },
     rules: [
       'Each team fields anchor, lead, and team members positioned along designated marks.',
@@ -88,46 +59,11 @@ export const FEATURED_SPORTS_GAMES: SportsActivityEvent[] = [
     ],
     imageUrl:
       'https://images.unsplash.com/photo-1517649763962-0c623266ddc0?auto=format&fit=crop&w=1200&q=80',
-    isActive: true, // "In Progress"
-    scores: [
-      { houseId: 'house-stormchasers', points: 75, placement: 1 },
-      { houseId: 'house-earthshakers', points: 50, placement: 2 },
-      { houseId: 'house-mountainhearts', points: 30, placement: 3 },
-      { houseId: 'house-thunderhooves', points: 20, placement: 4 },
-    ],
-    participatingStudentsWithRoles: [
-      {
-        student_name: 'Poomrapee W.',
-        house: 'Stormchasers',
-        role: 'Anchor',
-        studentId: 'stu-sc-pk4-1',
-      },
-      {
-        student_name: 'Thichanan L.',
-        house: 'Earthshakers',
-        role: 'Lead',
-        studentId: 'stu-es-pk3-2',
-      },
-      {
-        student_name: 'Linlada P.',
-        house: 'Mountainhearts',
-        role: 'Member',
-        studentId: 'stu-mh-pk4-3',
-      },
-      {
-        student_name: 'Kannisa T.',
-        house: 'Thunderhooves',
-        role: 'Member',
-        studentId: 'stu-th-pk3-3',
-      },
-    ],
-    participatingStudentIds: [
-      'stu-sc-pk4-1',
-      'stu-es-pk3-2',
-      'stu-mh-pk4-3',
-      'stu-th-pk3-3',
-    ],
-    notes: 'Live now on Central Field! Round 2 pull clinched by Stormchasers anchor.',
+    isActive: false,
+    scores: [],
+    participatingStudentsWithRoles: [],
+    participatingStudentIds: [],
+    notes: 'Scheduled for Central Field.',
   },
   {
     id: 'game-sprint-relays',
@@ -157,20 +93,10 @@ export const FEATURED_SPORTS_GAMES: SportsActivityEvent[] = [
     ],
     imageUrl:
       'https://images.unsplash.com/photo-1461896836934-ffe607ba8211?auto=format&fit=crop&w=1200&q=80',
-    isActive: false, // Completed
-    scores: [
-      { houseId: 'house-mountainhearts', points: 60, placement: 1 },
-      { houseId: 'house-stormchasers', points: 45, placement: 2 },
-      { houseId: 'house-earthshakers', points: 30, placement: 3 },
-      { houseId: 'house-thunderhooves', points: 15, placement: 4 },
-    ],
-    participatingStudentIds: [
-      'stu-mh-g1-1',
-      'stu-sc-g1-1',
-      'stu-es-g1-1',
-      'stu-th-g1-1',
-    ],
-    notes: 'Completed at 09:45 AM. Mountainhearts finished 1st in the 4x100m.',
+    isActive: false,
+    scores: [],
+    participatingStudentIds: [],
+    notes: 'Scheduled for Main Track.',
   },
   {
     id: 'game-trivia-bowl',
@@ -200,15 +126,10 @@ export const FEATURED_SPORTS_GAMES: SportsActivityEvent[] = [
     ],
     imageUrl:
       'https://images.unsplash.com/photo-1434030216411-0b793f4b4173?auto=format&fit=crop&w=1200&q=80',
-    isActive: false, // Upcoming
-    scores: [
-      { houseId: 'house-earthshakers', points: 0 },
-      { houseId: 'house-mountainhearts', points: 0 },
-      { houseId: 'house-stormchasers', points: 0 },
-      { houseId: 'house-thunderhooves', points: 0 },
-    ],
+    isActive: false,
+    scores: [],
     participatingStudentIds: [],
-    notes: 'Scheduled for 01:30 PM in the Auditorium. Buzzer systems tested and ready.',
+    notes: 'Scheduled for Auditorium.',
   },
   {
     id: 'game-swim-gala',
@@ -224,13 +145,12 @@ export const FEATURED_SPORTS_GAMES: SportsActivityEvent[] = [
     groupCategory: 'Primary & Junior Swimmers',
     targetPlayersCount: 4,
     lessThanMinAllowed: false,
-    scoringSystem: '1st: 70 pts | 2nd: 50 pts | 3rd: 35 pts | 4th: 20 pts',
+    scoringSystem: '1st: 70 pts | 2nd: 50 pts | 35 pts | 4th: 20 pts',
     scoringBreakdown: {
       firstPlace: 70,
       secondPlace: 50,
       thirdPlace: 35,
       fourthPlace: 20,
-      bonusNotes: 'Record touch pad time set by Earthshakers lead swimmer',
     },
     rules: [
       'Touch pads active on lane ends; swimmers must touch wall clearly before lane finish.',
@@ -239,45 +159,10 @@ export const FEATURED_SPORTS_GAMES: SportsActivityEvent[] = [
     ],
     imageUrl:
       'https://images.unsplash.com/photo-1530549387789-4c1017266635?auto=format&fit=crop&w=1200&q=80',
-    isActive: false, // Completed
-    scores: [
-      { houseId: 'house-earthshakers', points: 70, placement: 1 },
-      { houseId: 'house-thunderhooves', points: 50, placement: 2 },
-      { houseId: 'house-stormchasers', points: 35, placement: 3 },
-      { houseId: 'house-mountainhearts', points: 20, placement: 4 },
-    ],
-    participatingStudentsWithRoles: [
-      {
-        student_name: 'Thichanan L.',
-        house: 'Earthshakers',
-        role: 'Lead Swimmer',
-        studentId: 'stu-es-pk3-2',
-      },
-      {
-        student_name: 'Kannisa T.',
-        house: 'Thunderhooves',
-        role: 'Freestyle Anchor',
-        studentId: 'stu-th-pk3-3',
-      },
-      {
-        student_name: 'Poomrapee W.',
-        house: 'Stormchasers',
-        role: 'Lane 3 Competitor',
-        studentId: 'stu-sc-pk4-1',
-      },
-      {
-        student_name: 'Linlada P.',
-        house: 'Mountainhearts',
-        role: 'Lane 4 Competitor',
-        studentId: 'stu-mh-pk4-3',
-      },
-    ],
-    participatingStudentIds: [
-      'stu-es-pk3-2',
-      'stu-th-pk3-3',
-      'stu-sc-pk4-1',
-      'stu-mh-pk4-3',
-    ],
-    notes: 'Completed at 11:55 AM. Earthshakers claimed 1st place in the 50m sprint final.',
+    isActive: false,
+    scores: [],
+    participatingStudentsWithRoles: [],
+    participatingStudentIds: [],
+    notes: 'Scheduled for Aquatics Center.',
   },
 ];

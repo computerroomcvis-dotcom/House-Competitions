@@ -48,6 +48,7 @@ interface EventScheduleMatchCenterProps {
   transactions?: PointTransaction[];
   hideLiveTicker?: boolean;
   viewMode?: 'all' | 'overview' | 'cards';
+  isReadOnly?: boolean;
   onNavigateToEvents?: () => void;
   onAwardGameScore?: (
     gameId: string,
@@ -89,6 +90,7 @@ export const EventScheduleMatchCenter: React.FC<EventScheduleMatchCenterProps> =
   transactions = [],
   hideLiveTicker = false,
   viewMode = 'all',
+  isReadOnly = false,
   onNavigateToEvents,
   onUpdateEventScores,
   onToggleEventActive,
@@ -96,7 +98,7 @@ export const EventScheduleMatchCenter: React.FC<EventScheduleMatchCenterProps> =
   onOpenCreateEvent,
   onOpenExportSports,
 }) => {
-  const canAward = currentUser.role === 'admin';
+  const canAward = !isReadOnly && currentUser.role === 'admin';
 
   // Filters
   const [statusFilter, setStatusFilter] = useState<'all' | 'live' | 'upcoming' | 'completed'>('all');
@@ -577,7 +579,7 @@ export const EventScheduleMatchCenter: React.FC<EventScheduleMatchCenterProps> =
                   </button>
                 )}
 
-                {onOpenExportSports && (
+                {!isReadOnly && onOpenExportSports && (
                   <button
                     type="button"
                     onClick={onOpenExportSports}
@@ -1189,7 +1191,7 @@ export const EventScheduleMatchCenter: React.FC<EventScheduleMatchCenterProps> =
                 </button>
               )}
 
-              {onOpenExportSports && (
+              {!isReadOnly && onOpenExportSports && (
                 <button
                   type="button"
                   id="btn-header-export-newsletter"
