@@ -27,10 +27,12 @@ import {
   Calendar,
   Users,
   CalendarCheck,
+  Download,
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { AnimatedCounter } from './AnimatedCounter';
 import { EventScheduleMatchCenter } from './EventScheduleMatchCenter';
+import { ExportNewsletterDropdown } from './ExportNewsletterDropdown';
 
 interface HomePageProps {
   houses: House[];
@@ -55,6 +57,7 @@ interface HomePageProps {
   ) => void;
   onLoginTeacher: (teacher: TeacherUser) => void;
   onLoginAdmin: (adminUser?: AdminUser) => void;
+  onOpenExport?: () => void;
 }
 
 export const HomePage: React.FC<HomePageProps> = ({
@@ -72,6 +75,7 @@ export const HomePage: React.FC<HomePageProps> = ({
   onAwardGameScore,
   onLoginTeacher,
   onLoginAdmin,
+  onOpenExport,
 }) => {
   // Modal states for small buttons at top
   const [showTeacherModal, setShowTeacherModal] = useState(false);
@@ -348,6 +352,14 @@ export const HomePage: React.FC<HomePageProps> = ({
 
         {/* Small Top Action Buttons (Teacher Login & Admin Login) */}
         <div className="flex items-center gap-2 shrink-0">
+          {/* Export Newsletter Dropdown */}
+          {onOpenExport && (
+            <ExportNewsletterDropdown
+              onOpenModal={onOpenExport}
+              idPrefix="portal"
+            />
+          )}
+
           {/* Celebrate Button */}
           <button
             type="button"
@@ -424,7 +436,7 @@ export const HomePage: React.FC<HomePageProps> = ({
               <span>House Standings</span>
             </button>
 
-            {/* Tab 3: House Competitions */}
+            {/* Tab 3: House Competitions Results */}
             <button
               type="button"
               id="home-tab-sports"
@@ -436,7 +448,7 @@ export const HomePage: React.FC<HomePageProps> = ({
               }`}
             >
               <Flame className="w-4 h-4 text-rose-500" />
-              <span>House Competitions</span>
+              <span>House Competitions Results</span>
               <span className="inline-flex items-center gap-1 px-1.5 py-0.2 rounded-full text-[9px] font-black uppercase tracking-wider bg-rose-500/20 text-rose-300 border border-rose-500/30">
                 <span className="w-1.5 h-1.5 rounded-full bg-rose-500 animate-pulse" />
                 LIVE
@@ -992,7 +1004,7 @@ export const HomePage: React.FC<HomePageProps> = ({
         </div>
       )}
 
-      {/* TAB 3: HOUSE COMPETITIONS (Tournament Overview & Athlete Leaderboards) */}
+      {/* TAB 3: HOUSE COMPETITIONS RESULTS */}
       {homeTab === 'sports' && (
         <div className="space-y-6 animate-in fade-in duration-150">
           <EventScheduleMatchCenter
@@ -1004,11 +1016,12 @@ export const HomePage: React.FC<HomePageProps> = ({
             hideLiveTicker={false}
             viewMode="overview"
             onNavigateToEvents={() => setHomeTab('sports-events')}
+            onOpenExportSports={onOpenExport}
           />
         </div>
       )}
 
-      {/* TAB 4: HOUSE COMPETITIONS EVENTS (The actual House Activity Cards & Match Placements) */}
+      {/* TAB 4: HOUSE COMPETITIONS EVENTS */}
       {homeTab === 'sports-events' && (
         <div className="space-y-6 animate-in fade-in duration-150">
           <EventScheduleMatchCenter
@@ -1019,6 +1032,7 @@ export const HomePage: React.FC<HomePageProps> = ({
             transactions={transactions}
             hideLiveTicker={false}
             viewMode="cards"
+            onOpenExportSports={onOpenExport}
           />
         </div>
       )}

@@ -9,6 +9,7 @@ import {
   Trophy,
 } from 'lucide-react';
 import { AnimatedCounter } from './AnimatedCounter';
+import { ExportNewsletterDropdown } from './ExportNewsletterDropdown';
 
 interface HeaderProps {
   currentUser: CurrentUser;
@@ -110,19 +111,12 @@ export const Header: React.FC<HeaderProps> = ({
 
           {/* Right: Consolidated Primary Export Action & Auth Controls */}
           <div className="flex items-center gap-2 sm:gap-2.5 shrink-0">
-            {/* Single Consolidated Primary Action: "Export Newsletter Summary & Graphics" */}
+            {/* Primary Action: 5-Format "Export Newsletter" Dropdown */}
             {onOpenExport && (
-              <button
-                type="button"
-                id="header-export-btn"
-                onClick={onOpenExport}
-                className="btn-hover-scale inline-flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-2 text-xs sm:text-sm font-black text-slate-950 bg-gradient-to-r from-amber-400 via-amber-300 to-amber-500 hover:from-amber-300 hover:to-amber-400 border border-amber-300 rounded-xl shadow-md shadow-amber-500/25 transition-all cursor-pointer"
-                title="Export Newsletter Summary & Graphics (PNG, PDF, DOC, JSON)"
-              >
-                <Download className="w-4 h-4 text-slate-950 shrink-0" />
-                <span className="hidden sm:inline">Export Newsletter Summary &amp; Graphics</span>
-                <span className="sm:hidden font-bold">Export Newsletter</span>
-              </button>
+              <ExportNewsletterDropdown
+                onOpenModal={onOpenExport}
+                idPrefix="header"
+              />
             )}
 
             {/* 1. TEACHER LOGGED IN */}

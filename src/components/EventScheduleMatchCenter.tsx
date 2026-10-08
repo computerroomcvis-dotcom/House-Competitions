@@ -35,8 +35,10 @@ import {
   CalendarCheck,
   Info,
   Plus,
+  Edit2,
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
+import { EditSportsGameModal } from './EditSportsGameModal';
 
 interface EventScheduleMatchCenterProps {
   sportsEvents: SportsActivityEvent[];
@@ -90,6 +92,8 @@ export const EventScheduleMatchCenter: React.FC<EventScheduleMatchCenterProps> =
   onNavigateToEvents,
   onUpdateEventScores,
   onToggleEventActive,
+  onUpdateSportsEvents,
+  onOpenCreateEvent,
   onOpenExportSports,
 }) => {
   const canAward = currentUser.role === 'admin';
@@ -97,6 +101,20 @@ export const EventScheduleMatchCenter: React.FC<EventScheduleMatchCenterProps> =
   // Filters
   const [statusFilter, setStatusFilter] = useState<'all' | 'live' | 'upcoming' | 'completed'>('all');
   const [searchQuery, setSearchQuery] = useState('');
+
+  // Admin Game Card Modal State
+  const [isAdminGameModalOpen, setIsAdminGameModalOpen] = useState(false);
+  const [adminEditingGame, setAdminEditingGame] = useState<SportsActivityEvent | null>(null);
+
+  const handleSaveAdminGame = (saved: SportsActivityEvent) => {
+    if (onUpdateSportsEvents) {
+      const exists = sportsEvents.some((e) => e.id === saved.id);
+      const updated = exists
+        ? sportsEvents.map((e) => (e.id === saved.id ? saved : e))
+        : [saved, ...sportsEvents];
+      onUpdateSportsEvents(updated);
+    }
+  };
 
   // Selected game for the house placement modal
   const [selectedGameForScoring, setSelectedGameForScoring] = useState<SportsActivityEvent | null>(
@@ -256,6 +274,64 @@ export const EventScheduleMatchCenter: React.FC<EventScheduleMatchCenterProps> =
     }
 
     return [];
+  };
+
+  // Group game participants by grade level for a house
+  const getGameParticipantsGroupedByGrade = (game: SportsActivityEvent, house: House) => {
+    const participants = getGameParticipantsByHouse(game, house);
+    const groups: Record<string, { studentId?: string; student_name: string; role: string; grade: string }[]> = {};
+
+    participants.forEach((p) => {
+      const st = students.find((s) => s.id === p.studentId || s.name.toLowerCase() === p.student_name.toLowerCase());
+      const grade = st?.grade || p.grade || 'Primary';
+      if (!groups[grade]) groups[grade] = [];
+      groups[grade].push({
+        studentId: p.studentId,
+        student_name: p.student_name,
+        role: p.role || 'Competitor',
+        grade,
+      });
+    });
+
+    return groups;
+  };
+
+  // Filter games that are completed or scored for the official log
+  const completedGames = useMemo(() => {
+    return sportsEvents.filter((game) => {
+      const hasCompletedNote = game.notes?.toLowerCase().includes('completed') || false;
+      const hasPlacements = (game.scores?.filter((s) => s.placement && s.placement > 0).length ?? 0) >= 1;
+      const isInactiveWithPoints = !game.isActive && (game.scores?.some((s) => s.points > 0) ?? false);
+      return hasCompletedNote || hasPlacements || isInactiveWithPoints;
+    });
+  }, [sportsEvents]);
+
+  // Mini-podium resolver for a game (1st, 2nd, 3rd, 4th Place Finishes)
+  const getGamePodium = (game: SportsActivityEvent) => {
+    const list: {
+      place: 1 | 2 | 3 | 4;
+      house: House;
+      points: number;
+      students: { student_name: string; role: string; grade?: string }[];
+    }[] = [];
+
+    ([1, 2, 3, 4] as const).forEach((place) => {
+      const scoreObj = game.scores?.find((s) => s.placement === place);
+      if (scoreObj) {
+        const house = houses.find((h) => h.id === scoreObj.houseId);
+        if (house) {
+          const participants = getGameParticipantsByHouse(game, house);
+          list.push({
+            place,
+            house,
+            points: scoreObj.points,
+            students: participants,
+          });
+        }
+      }
+    });
+
+    return list;
   };
 
   // Compute athlete participation and win stats across all sports events
@@ -469,10 +545,10 @@ export const EventScheduleMatchCenter: React.FC<EventScheduleMatchCenterProps> =
                 </div>
 
                 <h2 className="text-2xl sm:text-3xl font-black text-white font-['Outfit'] tracking-tight">
-                  House Competitions
+                  House Competitions Results
                 </h2>
                 <p className="text-xs sm:text-sm text-slate-300">
-                  Interactive sports handbook, house placements, and tournament athlete leaderboards.
+                  Official championship log of final game results, mini-podium finishes, and athlete leaderboards.
                 </p>
               </div>
 
@@ -849,6 +925,196 @@ export const EventScheduleMatchCenter: React.FC<EventScheduleMatchCenterProps> =
         </div>
       </div>
 
+      {/* 4. ALL-GAMES FINAL RESULTS FEED (Official Championship Log) */}
+      <div className="space-y-4">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-2 border-b border-slate-800">
+          <div className="flex items-center gap-2.5">
+            <div className="w-8 h-8 rounded-xl bg-amber-400 text-slate-950 flex items-center justify-center font-black shrink-0 shadow-md">
+              <Trophy className="w-4 h-4 text-slate-950" />
+            </div>
+            <div>
+              <h3 className="text-base sm:text-lg font-black text-white font-['Outfit'] flex items-center gap-2">
+                <span>All-Games Final Results Feed</span>
+                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+                  Official Log ({completedGames.length} Final Results Recorded)
+                </span>
+              </h3>
+              <p className="text-xs text-slate-400">
+                Official championship records with mini-podium finishes (1st through 4th place) and verified house points.
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2">
+            {canAward && (
+              <button
+                type="button"
+                onClick={() => setSelectedGameForScoring(sportsEvents[0] || null)}
+                className="btn-hover-scale inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold bg-amber-400 hover:bg-amber-300 text-slate-950 shadow-sm cursor-pointer font-black"
+              >
+                <Plus className="w-3.5 h-3.5" />
+                <span>Record / Update Results</span>
+              </button>
+            )}
+          </div>
+        </div>
+
+        {completedGames.length === 0 ? (
+          <div className="bg-slate-900/60 rounded-2xl border border-slate-800 p-8 text-center space-y-3">
+            <Trophy className="w-10 h-10 text-slate-600 mx-auto" />
+            <h4 className="text-sm font-bold text-white">No Final Match Results Recorded Yet</h4>
+            <p className="text-xs text-slate-400 max-w-md mx-auto">
+              Once games conclude and placements are recorded, official mini-podium finishes (1st through 4th place) will appear in this feed.
+            </p>
+            {canAward && (
+              <button
+                type="button"
+                onClick={() => setSelectedGameForScoring(sportsEvents[0] || null)}
+                className="px-4 py-2 bg-amber-400 hover:bg-amber-300 text-slate-950 text-xs font-black rounded-xl cursor-pointer"
+              >
+                Record First Game Result &rarr;
+              </button>
+            )}
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 gap-4">
+            {completedGames.map((game) => {
+              const podium = getGamePodium(game);
+              return (
+                <div
+                  key={game.id}
+                  className="bg-[#161B22] border border-slate-800 rounded-2xl p-4 sm:p-5 shadow-lg space-y-4 hover:border-slate-700 transition-all relative overflow-hidden"
+                >
+                  {/* Top Bar */}
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 pb-3 border-b border-slate-800">
+                    <div className="space-y-1">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="px-2 py-0.5 rounded text-[10px] font-black uppercase tracking-wider bg-slate-800 text-amber-400 border border-slate-700">
+                          {game.category}
+                        </span>
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-black uppercase tracking-wider bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+                          <CheckCircle className="w-3 h-3 text-emerald-400" />
+                          Final Result Recorded
+                        </span>
+                      </div>
+                      <h4 className="text-base sm:text-lg font-black text-white font-['Outfit']">
+                        {game.title}
+                      </h4>
+                      <div className="flex items-center gap-3 text-xs text-slate-400 flex-wrap">
+                        {game.time && (
+                          <span className="flex items-center gap-1 font-mono">
+                            <Clock className="w-3.5 h-3.5 text-amber-400" />
+                            {game.time}
+                          </span>
+                        )}
+                        {game.location && (
+                          <span className="flex items-center gap-1">
+                            <MapPin className="w-3.5 h-3.5 text-rose-400" />
+                            {game.location}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+
+                    {canAward && (
+                      <button
+                        type="button"
+                        onClick={() => setSelectedGameForScoring(game)}
+                        className="self-start sm:self-auto text-xs text-amber-400 hover:text-amber-300 font-bold underline cursor-pointer"
+                      >
+                        Edit Placements &rarr;
+                      </button>
+                    )}
+                  </div>
+
+                  {/* Mini-Podium Badge Layout (1st, 2nd, 3rd, 4th Place Finishes) */}
+                  <div className="space-y-1.5">
+                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
+                      Official Mini-Podium Finishes:
+                    </span>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2.5">
+                      {([1, 2, 3, 4] as const).map((place) => {
+                        const podItem = podium.find((p) => p.place === place);
+                        const medal = place === 1 ? '🥇' : place === 2 ? '🥈' : place === 3 ? '🥉' : '🎖️';
+                        const placeLabel = place === 1 ? '1st Place' : place === 2 ? '2nd Place' : place === 3 ? '3rd Place' : '4th Place';
+                        const badgeBg =
+                          place === 1
+                            ? 'bg-amber-500/10 border-amber-500/30 text-amber-300'
+                            : place === 2
+                            ? 'bg-slate-300/10 border-slate-300/30 text-slate-200'
+                            : place === 3
+                            ? 'bg-amber-700/10 border-amber-700/30 text-amber-400'
+                            : 'bg-indigo-950/40 border-indigo-500/30 text-indigo-300';
+
+                        if (!podItem) {
+                          return (
+                            <div
+                              key={place}
+                              className="bg-slate-950/60 border border-slate-800/80 rounded-xl p-3 flex flex-col justify-between gap-1 opacity-60"
+                            >
+                              <div className="flex items-center justify-between">
+                                <span className="text-xs font-bold text-slate-400">{medal} {placeLabel}</span>
+                              </div>
+                              <span className="text-xs text-slate-500 italic">Unassigned</span>
+                            </div>
+                          );
+                        }
+
+                        return (
+                          <div
+                            key={place}
+                            className={`rounded-xl p-3 flex flex-col justify-between gap-2 border transition-all ${badgeBg}`}
+                            style={{ borderLeftColor: podItem.house.color, borderLeftWidth: '4px' }}
+                          >
+                            <div className="flex items-center justify-between gap-1">
+                              <span className="text-xs font-black flex items-center gap-1">
+                                <span>{medal}</span>
+                                <span>{placeLabel}</span>
+                              </span>
+                              <span className="text-xs font-mono font-black px-1.5 py-0.5 rounded bg-slate-950 text-white border border-slate-800">
+                                +{podItem.points} pts
+                              </span>
+                            </div>
+
+                            <div className="flex items-center gap-1.5">
+                              <span
+                                className="w-2.5 h-2.5 rounded-full shrink-0 shadow-xs"
+                                style={{ backgroundColor: podItem.house.color }}
+                              />
+                              <strong className="text-xs text-white truncate font-extrabold">
+                                {podItem.house.name.replace('House of ', '')}
+                              </strong>
+                            </div>
+
+                            {/* Athletes rostered for this finish */}
+                            {podItem.students.length > 0 && (
+                              <div className="text-[11px] text-slate-300 space-y-0.5 pt-1 border-t border-slate-800/60">
+                                {podItem.students.slice(0, 2).map((st, sIdx) => (
+                                  <div key={sIdx} className="flex items-center justify-between text-[10px]">
+                                    <span className="truncate font-semibold">{st.student_name}</span>
+                                    <span className="text-slate-400 truncate max-w-[80px]">({st.role})</span>
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  {game.notes && (
+                    <p className="text-xs text-slate-400 bg-slate-950/60 p-2.5 rounded-xl border border-slate-800/80 italic">
+                      &ldquo;{game.notes}&rdquo;
+                    </p>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
+
       {/* CTA BANNER TO JUMP TO EVENTS TAB (when in overview mode) */}
       {viewMode === 'overview' && onNavigateToEvents && (
         <div className="bg-gradient-to-r from-indigo-950/60 via-slate-900 to-slate-950 border border-indigo-500/30 rounded-2xl p-5 flex flex-col sm:flex-row items-center justify-between gap-4 shadow-lg">
@@ -894,7 +1160,7 @@ export const EventScheduleMatchCenter: React.FC<EventScheduleMatchCenterProps> =
                 </span>
                 <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold bg-rose-500/20 text-rose-300 border border-rose-500/30">
                   <span className="w-2 h-2 rounded-full bg-rose-500 animate-pulse" />
-                  <span>LIVE MATCH PLACEMENTS</span>
+                  <span>ACTIVE / UPCOMING GAME CARD CENTER</span>
                 </span>
               </div>
 
@@ -902,32 +1168,36 @@ export const EventScheduleMatchCenter: React.FC<EventScheduleMatchCenterProps> =
                 House Competitions Events
               </h2>
               <p className="text-xs sm:text-sm text-slate-300">
-                Official sports activity cards, house matchup rosters, venue locations, and interactive placement scoring.
+                Official sports activity cards generated by Admin Game Card Creator with complete rules, points breakdowns, and participating student rosters grouped by House and Grade Level.
               </p>
             </div>
 
-            {/* Quick Actions (Export, Scoring) */}
+            {/* Quick Actions (Create Card, Export Newsletter) */}
             <div className="flex items-center gap-2.5 flex-wrap shrink-0">
               {canAward && (
                 <button
                   type="button"
-                  id="btn-open-game-scoring-events"
-                  onClick={() => setSelectedGameForScoring(sportsEvents[0] || null)}
-                  className="btn-hover-scale inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs sm:text-sm font-black bg-amber-400 hover:bg-amber-300 active:scale-95 text-slate-950 shadow-lg shadow-amber-400/20 transition-all cursor-pointer"
+                  id="btn-header-create-card"
+                  onClick={() => {
+                    setAdminEditingGame(null);
+                    setIsAdminGameModalOpen(true);
+                  }}
+                  className="btn-hover-scale inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs sm:text-sm font-black bg-gradient-to-r from-amber-400 to-amber-500 hover:from-amber-300 hover:to-amber-400 text-slate-950 shadow-lg shadow-amber-400/20 transition-all cursor-pointer"
                 >
-                  <Trophy className="w-4 h-4 text-slate-950" />
-                  <span>Score Game Placements</span>
+                  <Plus className="w-4 h-4 text-slate-950" />
+                  <span>+ Create Game Card</span>
                 </button>
               )}
 
               {onOpenExportSports && (
                 <button
                   type="button"
+                  id="btn-header-export-newsletter"
                   onClick={onOpenExportSports}
                   className="btn-hover-scale inline-flex items-center gap-1.5 px-3.5 py-2.5 rounded-xl text-xs sm:text-sm font-bold bg-slate-800 hover:bg-slate-700 active:scale-95 text-slate-200 border border-slate-700 transition-all cursor-pointer"
                 >
                   <Download className="w-3.5 h-3.5 text-rose-400" />
-                  <span>Export Scorecards</span>
+                  <span>Export Newsletter</span>
                 </button>
               )}
             </div>
@@ -966,298 +1236,314 @@ export const EventScheduleMatchCenter: React.FC<EventScheduleMatchCenterProps> =
         </div>
       </div>
 
-      {/* 5. INTERACTIVE GAME CARDS LIST */}
+      {/* 5. INTERACTIVE GAME CARDS LIST (Active / Upcoming Game Card Center) */}
       <div className="space-y-4">
-        <div className="flex items-center justify-between">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div className="flex items-center gap-2">
-            <Trophy className="w-4 h-4 text-amber-400" />
-            <h3 className="text-base font-black text-white font-['Outfit']">
-              Game Cards &amp; House Placements ({filteredGames.length})
-            </h3>
+            <Trophy className="w-5 h-5 text-amber-400" />
+            <div>
+              <h3 className="text-base sm:text-lg font-black text-white font-['Outfit']">
+                Active &amp; Upcoming Game Cards ({filteredGames.length})
+              </h3>
+              <p className="text-xs text-slate-400">
+                Generated by Admin Game Card Creator &bull; Primary export source for Parent Newsletters
+              </p>
+            </div>
           </div>
-          <span className="text-xs text-slate-400 hidden sm:inline">
-            {canAward ? 'Click 1st, 2nd, 3rd, or 4th place on any house to award points' : 'House standings update live with each match placement'}
-          </span>
+
+          {canAward && (
+            <button
+              type="button"
+              onClick={() => {
+                setAdminEditingGame(null);
+                setIsAdminGameModalOpen(true);
+              }}
+              className="btn-hover-scale inline-flex items-center gap-2 px-3.5 py-1.5 rounded-xl text-xs font-black bg-amber-400 hover:bg-amber-300 text-slate-950 shadow-md shadow-amber-400/20 cursor-pointer self-start sm:self-auto"
+            >
+              <Plus className="w-4 h-4 text-slate-950" />
+              <span>+ Create Game Card</span>
+            </button>
+          )}
         </div>
 
-        <div className="grid grid-cols-1 gap-5">
+        <div className="grid grid-cols-1 gap-6">
           {filteredGames.map((game) => {
             const isCompleted =
               game.notes?.toLowerCase().includes('completed') ||
               (!game.isActive && game.scores?.some((s) => s.points > 0));
+            const cardImg = getEventImage(game);
 
             return (
               <div
                 key={game.id}
-                className="bg-[#161B22] border border-slate-800 rounded-2xl p-4 sm:p-5 shadow-lg space-y-4 relative overflow-hidden transition-all hover:border-slate-700"
+                className="bg-[#161B22] border border-slate-800 rounded-2xl overflow-hidden shadow-xl hover:border-slate-700 transition-all flex flex-col group"
               >
-                {/* 1. CARD HEADER */}
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-800">
-                  <div className="space-y-1 min-w-0">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <span className="px-2 py-0.5 rounded-md text-[10px] font-black uppercase tracking-wider bg-slate-800 text-amber-400 border border-slate-700">
-                        {game.category}
-                      </span>
+                {/* Visual Banner Header */}
+                <div className="relative aspect-video sm:aspect-21/9 max-h-60 w-full overflow-hidden bg-slate-900 border-b border-slate-800">
+                  <img
+                    src={cardImg}
+                    alt={game.title}
+                    className="w-full h-full object-cover brightness-90 group-hover:scale-105 transition-transform duration-500"
+                  />
+                  <div className="absolute inset-0 bg-gradient-to-t from-[#161B22] via-[#161B22]/50 to-transparent" />
+
+                  {/* Top Floating Badges */}
+                  <div className="absolute top-3 left-3 right-3 flex items-center justify-between gap-2">
+                    <span className="px-2.5 py-1 rounded-lg text-[10px] font-black uppercase tracking-wider bg-slate-900/90 text-amber-400 border border-slate-700/80 backdrop-blur-xs">
+                      {game.category}
+                    </span>
+
+                    <div className="flex items-center gap-1.5">
                       {game.isActive && (
-                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-black uppercase tracking-wider bg-rose-500 text-white animate-pulse">
+                        <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg text-[10px] font-black uppercase tracking-wider bg-rose-500 text-white shadow-md shadow-rose-500/30 animate-pulse">
                           <span className="w-1.5 h-1.5 rounded-full bg-white" />
-                          Live Now
+                          <span>Live Now</span>
                         </span>
                       )}
                       {isCompleted && (
-                        <span className="px-2 py-0.5 rounded-md text-[10px] font-black uppercase tracking-wider bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+                        <span className="px-2.5 py-1 rounded-lg text-[10px] font-black uppercase tracking-wider bg-emerald-500/90 text-white border border-emerald-400 shadow-xs">
                           Completed
                         </span>
                       )}
+                      {!game.isActive && !isCompleted && (
+                        <span className="px-2.5 py-1 rounded-lg text-[10px] font-black uppercase tracking-wider bg-slate-800/90 text-slate-300 border border-slate-700">
+                          Upcoming
+                        </span>
+                      )}
                     </div>
+                  </div>
 
-                    <h4 className="text-lg font-black text-white font-['Outfit'] truncate">
+                  {/* Bottom Text Over Image */}
+                  <div className="absolute bottom-3 left-4 right-4">
+                    <h4 className="text-xl sm:text-2xl font-black text-white font-['Outfit'] drop-shadow-md">
                       {game.title}
                     </h4>
-                    <div className="flex items-center gap-3 text-xs text-slate-400 flex-wrap">
+                    <div className="flex items-center gap-4 text-xs text-slate-200 mt-1 flex-wrap drop-shadow-sm font-medium">
+                      <span className="flex items-center gap-1.5">
+                        <Calendar className="w-3.5 h-3.5 text-amber-400" />
+                        <span>{formatEventDay(game.date)}</span>
+                      </span>
                       {game.time && (
-                        <span className="flex items-center gap-1 font-mono">
+                        <span className="flex items-center gap-1.5 font-mono">
                           <Clock className="w-3.5 h-3.5 text-amber-400" />
-                          {game.time}
+                          <span>{game.time}</span>
                         </span>
                       )}
                       {game.location && (
-                        <span className="flex items-center gap-1">
+                        <span className="flex items-center gap-1.5">
                           <MapPin className="w-3.5 h-3.5 text-rose-400" />
-                          {game.location}
-                        </span>
-                      )}
-                      {game.scoringSystem && (
-                        <span className="text-[11px] text-slate-400 italic">
-                          Scoring: {game.scoringSystem}
+                          <span>{game.location}</span>
                         </span>
                       )}
                     </div>
                   </div>
+                </div>
 
-                  {canAward && (
-                    <button
-                      type="button"
-                      onClick={() => setSelectedGameForScoring(game)}
-                      className="btn-hover-scale px-3 py-1.5 rounded-xl text-xs font-bold bg-slate-800 hover:bg-slate-700 text-amber-300 border border-amber-500/30 shrink-0 self-start sm:self-auto cursor-pointer flex items-center gap-1.5"
-                    >
-                      <Trophy className="w-3.5 h-3.5 text-amber-400" />
-                      <span>Set Placements Modal</span>
-                    </button>
+                <div className="p-4 sm:p-6 space-y-5 flex-1 flex flex-col justify-between">
+                  {/* Brief description if present */}
+                  {game.description && (
+                    <p className="text-xs sm:text-sm text-slate-300 leading-relaxed">
+                      {game.description}
+                    </p>
                   )}
-                </div>
 
-                {/* 2. HOUSE PLACEMENTS SCORING ROW (Click on House & Put Place) */}
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between">
-                    <span className="text-[10px] font-black uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
-                      <Trophy className="w-3.5 h-3.5 text-amber-400" />
-                      House Placements &amp; Points:
-                    </span>
-                    {canAward && (
-                      <span className="text-[10px] text-amber-300 font-bold">
-                        Click 1st, 2nd, 3rd, or 4th to assign placement
+                  {/* Section A: Rules & Points Breakdown */}
+                  <div className="grid grid-cols-1 lg:grid-cols-12 gap-3.5">
+                    {/* Points Value Box */}
+                    <div className="lg:col-span-6 bg-slate-950/80 border border-slate-800 rounded-xl p-3.5 space-y-2.5">
+                      <div className="flex items-center justify-between pb-1.5 border-b border-slate-800">
+                        <span className="text-[11px] font-black uppercase tracking-wider text-amber-400 flex items-center gap-1.5">
+                          <Sparkles className="w-3.5 h-3.5 text-amber-400" />
+                          Points Breakdown (1st - 4th Place):
+                        </span>
+                      </div>
+
+                      <div className="grid grid-cols-4 gap-2 text-center">
+                        <div className="bg-amber-500/10 border border-amber-500/30 rounded-lg p-2">
+                          <span className="text-[10px] font-bold text-amber-300 block">🥇 1st</span>
+                          <span className="text-sm font-black text-amber-400 font-mono">
+                            +{getPlacementPoints(game, 1)} pts
+                          </span>
+                        </div>
+                        <div className="bg-slate-300/10 border border-slate-300/30 rounded-lg p-2">
+                          <span className="text-[10px] font-bold text-slate-200 block">🥈 2nd</span>
+                          <span className="text-sm font-black text-slate-200 font-mono">
+                            +{getPlacementPoints(game, 2)} pts
+                          </span>
+                        </div>
+                        <div className="bg-amber-700/10 border border-amber-700/30 rounded-lg p-2">
+                          <span className="text-[10px] font-bold text-amber-400 block">🥉 3rd</span>
+                          <span className="text-sm font-black text-amber-400 font-mono">
+                            +{getPlacementPoints(game, 3)} pts
+                          </span>
+                        </div>
+                        <div className="bg-indigo-950/40 border border-indigo-500/30 rounded-lg p-2">
+                          <span className="text-[10px] font-bold text-indigo-300 block">🎖️ 4th</span>
+                          <span className="text-sm font-black text-indigo-300 font-mono">
+                            +{getPlacementPoints(game, 4)} pts
+                          </span>
+                        </div>
+                      </div>
+
+                      {game.scoringBreakdown?.bonusNotes && (
+                        <p className="text-[10px] text-amber-300/90 italic pt-1 border-t border-slate-800">
+                          {game.scoringBreakdown.bonusNotes}
+                        </p>
+                      )}
+                    </div>
+
+                    {/* Rules Box */}
+                    <div className="lg:col-span-6 bg-slate-950/80 border border-slate-800 rounded-xl p-3.5 space-y-2">
+                      <div className="flex items-center justify-between pb-1.5 border-b border-slate-800">
+                        <span className="text-[11px] font-black uppercase tracking-wider text-emerald-400 flex items-center gap-1.5">
+                          <Shield className="w-3.5 h-3.5 text-emerald-400" />
+                          Official Game Rules ({game.rules?.length || 0}):
+                        </span>
+                      </div>
+
+                      <div className="space-y-1.5 max-h-36 overflow-y-auto pr-1">
+                        {game.rules && game.rules.length > 0 ? (
+                          game.rules.map((rule, rIdx) => (
+                            <div key={rIdx} className="flex items-start gap-2 text-[11px] text-slate-300">
+                              <span className="w-4 h-4 rounded-full bg-emerald-500/20 text-emerald-400 text-[10px] font-bold flex items-center justify-center shrink-0 mt-0.5">
+                                {rIdx + 1}
+                              </span>
+                              <span className="leading-tight">{rule}</span>
+                            </div>
+                          ))
+                        ) : (
+                          <p className="text-xs text-slate-500 italic">Standard competition guidelines apply.</p>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Section B: Complete Student Participation Rosters Grouped by House & Grade Level */}
+                  <div className="space-y-2.5 pt-2 border-t border-slate-800">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-black uppercase tracking-wider text-white flex items-center gap-1.5">
+                        <Users className="w-4 h-4 text-indigo-400" />
+                        Complete Student Participation Rosters (Grouped by House &amp; Grade Level):
                       </span>
-                    )}
-                  </div>
+                      <span className="text-[10px] text-slate-400 font-medium">
+                        Registered Athlete Lineup
+                      </span>
+                    </div>
 
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2.5">
-                    {houses.map((house) => {
-                      const scoreObj = game.scores?.find((s) => s.houseId === house.id);
-                      const currentPlacement = scoreObj?.placement;
-                      const points = scoreObj?.points || 0;
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                      {houses.map((house) => {
+                        const groupedByGrade = getGameParticipantsGroupedByGrade(game, house);
+                        const gradesPresent = Object.keys(groupedByGrade);
+                        const totalAthletes = Object.values(groupedByGrade).reduce((sum, arr) => sum + arr.length, 0);
 
-                      return (
-                        <div
-                          key={house.id}
-                          className={`p-3 rounded-xl border flex flex-col justify-between gap-2.5 transition-all relative overflow-hidden ${
-                            currentPlacement === 1
-                              ? 'bg-amber-500/15 border-amber-400 shadow-md ring-1 ring-amber-400/50'
-                              : currentPlacement === 2
-                              ? 'bg-slate-800/80 border-slate-400/60 shadow-xs'
-                              : currentPlacement === 3
-                              ? 'bg-amber-950/20 border-amber-700/60'
-                              : currentPlacement === 4
-                              ? 'bg-slate-900 border-slate-700/60'
-                              : 'bg-slate-950/80 border-slate-800'
-                          }`}
-                        >
+                        return (
                           <div
-                            className="absolute top-0 left-0 right-0 h-1"
-                            style={{ backgroundColor: house.color }}
-                          />
-
-                          <div className="flex items-center justify-between gap-1.5 mt-0.5">
-                            <div className="flex items-center gap-1.5 min-w-0">
-                              <span
-                                className="w-2.5 h-2.5 rounded-full shrink-0"
-                                style={{ backgroundColor: house.color }}
-                              />
-                              <span className="font-extrabold text-white text-xs truncate">
-                                {house.name.replace('House of ', '')}
+                            key={house.id}
+                            className="bg-slate-950/90 border border-slate-800 rounded-xl p-3.5 space-y-2.5"
+                            style={{ borderLeftColor: house.color, borderLeftWidth: '4px' }}
+                          >
+                            <div className="flex items-center justify-between pb-1.5 border-b border-slate-800">
+                              <div className="flex items-center gap-2 min-w-0">
+                                <span
+                                  className="w-2.5 h-2.5 rounded-full shrink-0 shadow-xs"
+                                  style={{ backgroundColor: house.color }}
+                                />
+                                <strong className="text-xs font-black text-white truncate">
+                                  {house.name}
+                                </strong>
+                              </div>
+                              <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-slate-900 text-slate-300 border border-slate-800">
+                                {totalAthletes} Enrolled
                               </span>
                             </div>
 
-                            <div className="text-right shrink-0">
-                              <span
-                                className={`text-[10px] font-black px-1.5 py-0.5 rounded ${
-                                  currentPlacement === 1
-                                    ? 'bg-amber-400 text-slate-950 shadow-xs'
-                                    : currentPlacement === 2
-                                    ? 'bg-slate-300 text-slate-950'
-                                    : currentPlacement === 3
-                                    ? 'bg-amber-700 text-white'
-                                    : currentPlacement === 4
-                                    ? 'bg-slate-800 text-slate-300'
-                                    : 'bg-slate-900 text-slate-500'
-                                }`}
-                              >
-                                {currentPlacement === 1
-                                  ? '🥇 1st Place'
-                                  : currentPlacement === 2
-                                  ? '🥈 2nd Place'
-                                  : currentPlacement === 3
-                                  ? '🥉 3rd Place'
-                                  : currentPlacement === 4
-                                  ? '4th Place'
-                                  : 'Unranked'}
-                              </span>
-                            </div>
-                          </div>
-
-                          <div className="flex items-baseline justify-between pt-1 border-t border-slate-800/60">
-                            <span className="text-[10px] text-slate-400">Awarded Points:</span>
-                            <span className="text-sm font-black text-white font-['Outfit']">
-                              {points > 0 ? `+${points} pts` : '0 pts'}
-                            </span>
-                          </div>
-
-                          {/* Quick Placement Action Pills for Admin */}
-                          {canAward && (
-                            <div className="grid grid-cols-4 gap-1 pt-1 border-t border-slate-800/80">
-                              {([1, 2, 3, 4] as const).map((place) => {
-                                const isSelected = currentPlacement === place;
-                                const placeLabel = place === 1 ? '1st' : place === 2 ? '2nd' : place === 3 ? '3rd' : '4th';
-                                return (
-                                  <button
-                                    key={place}
-                                    type="button"
-                                    onClick={() =>
-                                      handleSetHousePlacement(
-                                        game,
-                                        house.id,
-                                        isSelected ? null : place
-                                      )
-                                    }
-                                    className={`py-1 rounded text-[10px] font-black transition-all cursor-pointer border text-center ${
-                                      isSelected
-                                        ? place === 1
-                                          ? 'bg-amber-400 text-slate-950 border-amber-400 shadow-xs font-black'
-                                          : place === 2
-                                          ? 'bg-slate-200 text-slate-950 border-slate-200'
-                                          : place === 3
-                                          ? 'bg-amber-700 text-white border-amber-600'
-                                          : 'bg-slate-700 text-white border-slate-600'
-                                        : 'bg-slate-900/90 text-slate-400 border-slate-800 hover:text-white hover:bg-slate-800'
-                                    }`}
-                                    title={`Click to set ${house.name} as ${placeLabel} place`}
-                                  >
-                                    {placeLabel}
-                                  </button>
-                                );
-                              })}
-                            </div>
-                          )}
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-
-                {/* 3. ATHLETES BY HOUSE (Pure Rosters with Games Played/Won Stats - NO Individual Award Buttons) */}
-                <div className="space-y-2 pt-2 border-t border-slate-800/80">
-                  <div className="flex items-center justify-between">
-                    <span className="text-[10px] font-black text-slate-300 uppercase tracking-wider flex items-center gap-1.5">
-                      <Users className="w-3.5 h-3.5 text-indigo-400" />
-                      Participating Athletes by House:
-                    </span>
-                    <span className="text-[10px] text-slate-400">
-                      Team Rosters &bull; Tournament Stats Indicator
-                    </span>
-                  </div>
-
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-                    {houses.map((h) => {
-                      const houseParticipants = getGameParticipantsByHouse(game, h);
-
-                      return (
-                        <div
-                          key={h.id}
-                          className="bg-slate-900/80 border border-slate-800/90 rounded-xl p-2.5 space-y-1.5 hover:border-slate-700 transition-all"
-                        >
-                          <div className="flex items-center justify-between pb-1 border-b border-slate-800/80">
-                            <div className="flex items-center gap-1.5 min-w-0">
-                              <span
-                                className="w-2 h-2 rounded-full shrink-0"
-                                style={{ backgroundColor: h.color }}
-                              />
-                              <span className="text-xs font-black text-white truncate">
-                                {h.name}
-                              </span>
-                            </div>
-                            <span className="text-[10px] text-slate-400 font-semibold">
-                              {houseParticipants.length} Athletes
-                            </span>
-                          </div>
-
-                          <div className="space-y-1">
-                            {houseParticipants.length > 0 ? (
-                              houseParticipants.map((student, sIdx) => {
-                                const athleteStats =
-                                  athleteStatsMap[student.studentId] ||
-                                  athleteStatsMap[student.student_name];
-                                const playedCount = athleteStats?.gamesPlayed || 1;
-                                const wonCount = athleteStats?.gamesWon || 0;
-
-                                return (
-                                  <div
-                                    key={sIdx}
-                                    className="flex items-center justify-between text-xs bg-slate-950/80 px-2 py-1.5 rounded-lg border border-slate-800/80"
-                                  >
-                                    <div className="min-w-0 pr-2">
-                                      <strong className="text-white font-extrabold truncate block text-[11px]">
-                                        {student.student_name}
-                                      </strong>
-                                      <span className="text-[9px] text-slate-400">
-                                        ({student.grade}) &bull;{' '}
-                                        <span className="text-amber-300 italic">{student.role}</span>
-                                      </span>
-                                    </div>
-
-                                    {/* Student Games Played & Won Indicator */}
-                                    <div className="flex items-center gap-1.5 shrink-0 text-[10px] font-bold">
-                                      <span className="px-1.5 py-0.5 rounded bg-slate-900 text-slate-300 border border-slate-800">
-                                        🎯 {playedCount} played
-                                      </span>
-                                      {wonCount > 0 && (
-                                        <span className="px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
-                                          🏆 {wonCount} win{wonCount > 1 ? 's' : ''}
+                            {/* Grouped by Grade Level */}
+                            <div className="space-y-2">
+                              {gradesPresent.length > 0 ? (
+                                gradesPresent.map((grade) => {
+                                  const roster = groupedByGrade[grade];
+                                  return (
+                                    <div key={grade} className="space-y-1">
+                                      <div className="flex items-center gap-1.5">
+                                        <span className="text-[10px] font-extrabold uppercase px-1.5 py-0.2 rounded bg-indigo-950/70 text-indigo-300 border border-indigo-500/30">
+                                          {grade}
                                         </span>
-                                      )}
+                                      </div>
+
+                                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5 pl-1">
+                                        {roster.map((st, stIdx) => {
+                                          const stats = athleteStatsMap[st.studentId || st.student_name];
+                                          const played = stats?.gamesPlayed || 1;
+                                          const won = stats?.gamesWon || 0;
+
+                                          return (
+                                            <div
+                                              key={stIdx}
+                                              className="bg-slate-900/90 border border-slate-800 px-2 py-1.5 rounded-lg flex items-center justify-between gap-1 text-xs"
+                                            >
+                                              <div className="min-w-0">
+                                                <span className="font-bold text-white block truncate text-[11px]">
+                                                  {st.student_name}
+                                                </span>
+                                                <span className="text-[9px] text-amber-300 italic">
+                                                  {st.role}
+                                                </span>
+                                              </div>
+                                              <div className="flex items-center gap-1 shrink-0 text-[9px] text-slate-400">
+                                                <span>🎯{played}</span>
+                                                {won > 0 && <span className="text-emerald-400">🏆{won}</span>}
+                                              </div>
+                                            </div>
+                                          );
+                                        })}
+                                      </div>
                                     </div>
-                                  </div>
-                                );
-                              })
-                            ) : (
-                              <p className="text-[10px] text-slate-500 italic py-0.5">
-                                No athletes registered
-                              </p>
-                            )}
+                                  );
+                                })
+                              ) : (
+                                <p className="text-[10px] text-slate-500 italic py-1">
+                                  No athletes currently enrolled for this house.
+                                </p>
+                              )}
+                            </div>
                           </div>
-                        </div>
-                      );
-                    })}
+                        );
+                      })}
+                    </div>
                   </div>
+
+                  {/* Card Admin Actions Bar */}
+                  {canAward && (
+                    <div className="pt-3 border-t border-slate-800 flex items-center justify-between gap-2 flex-wrap">
+                      <div className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setAdminEditingGame(game);
+                            setIsAdminGameModalOpen(true);
+                          }}
+                          className="btn-hover-scale inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold bg-slate-800 hover:bg-slate-700 text-amber-300 border border-amber-500/30 cursor-pointer"
+                        >
+                          <Edit2 className="w-3.5 h-3.5 text-amber-400" />
+                          <span>Edit Card in Creator</span>
+                        </button>
+
+                        {onToggleEventActive && (
+                          <button
+                            type="button"
+                            onClick={() => onToggleEventActive(game.id, !game.isActive)}
+                            className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                              game.isActive
+                                ? 'bg-rose-500/20 text-rose-300 border border-rose-500/40 hover:bg-rose-500/30'
+                                : 'bg-slate-800 text-slate-300 hover:bg-slate-700'
+                            }`}
+                          >
+                            {game.isActive ? '🔴 Set Inactive' : '🟢 Push Live Now'}
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
             );
@@ -1425,6 +1711,21 @@ export const EventScheduleMatchCenter: React.FC<EventScheduleMatchCenterProps> =
             </div>
           </div>
         </div>
+      )}
+
+      {/* Admin Game Card Creator / Editor Modal */}
+      {isAdminGameModalOpen && (
+        <EditSportsGameModal
+          isOpen={isAdminGameModalOpen}
+          onClose={() => {
+            setIsAdminGameModalOpen(false);
+            setAdminEditingGame(null);
+          }}
+          event={adminEditingGame}
+          houses={houses}
+          students={students}
+          onSave={handleSaveAdminGame}
+        />
       )}
     </div>
   );

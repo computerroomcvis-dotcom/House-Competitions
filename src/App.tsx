@@ -42,6 +42,8 @@ import { TeacherQuickAwardView } from './components/TeacherQuickAwardView';
 import { AdvancedAwardView } from './components/AdvancedAwardView';
 import { ExportModal } from './components/ExportModal';
 import { EventScheduleMatchCenter } from './components/EventScheduleMatchCenter';
+import { NewsletterPreview } from './components/NewsletterPreview';
+import { ExportLoadingOverlay } from './components/ExportLoadingOverlay';
 import { Trophy, GraduationCap, Shield } from 'lucide-react';
 
 export default function App() {
@@ -64,12 +66,12 @@ export default function App() {
   const [isTeacherProfileOpen, setIsTeacherProfileOpen] = useState(false);
   const [isAdminOpen, setIsAdminOpen] = useState(false);
   const [isExportOpen, setIsExportOpen] = useState(false);
-  const [exportInitialTab, setExportInitialTab] = useState<'students' | 'sports'>('students');
+  const [exportInitialTab, setExportInitialTab] = useState<'newsletter' | 'students'>('newsletter');
   const [exportInitialDivision, setExportInitialDivision] = useState<'TP-GK' | 'G1-G5'>('TP-GK');
   const [exportInitialClass, setExportInitialClass] = useState<GradeLevel>('Grade 1');
 
   const handleOpenExport = (
-    tab: 'students' | 'sports' = 'students',
+    tab: 'newsletter' | 'students' = 'newsletter',
     division?: 'TP-GK' | 'G1-G5',
     classLevel?: GradeLevel
   ) => {
@@ -388,22 +390,65 @@ export default function App() {
   // If Welcome Home Page is active or user is not logged in as teacher/admin, display the House Cup Portal
   if (isHomePageActive || currentUser.role === 'public') {
     return (
-      <HomePage
-        houses={data.houses}
-        teachers={data.teachers}
-        adminUsers={data.adminUsers}
-        sportsEvents={data.sportsEvents}
-        students={data.students}
-        houseTotals={houseTotals}
-        currentUser={currentUser}
-        totalSchoolPoints={totalSchoolPoints}
-        leadingHouse={leader?.house}
-        leadingHousePoints={leader?.totalPoints}
-        transactions={data.transactions}
-        onAwardGameScore={handleAwardGameScore}
-        onLoginTeacher={handleHomeTeacherLogin}
-        onLoginAdmin={handleHomeAdminLogin}
-      />
+      <div className="min-h-screen bg-[#0D1117] text-slate-100 flex flex-col font-['Plus_Jakarta_Sans',sans-serif]">
+        <HomePage
+          houses={data.houses}
+          teachers={data.teachers}
+          adminUsers={data.adminUsers}
+          sportsEvents={data.sportsEvents}
+          students={data.students}
+          houseTotals={houseTotals}
+          currentUser={currentUser}
+          totalSchoolPoints={totalSchoolPoints}
+          leadingHouse={leader?.house}
+          leadingHousePoints={leader?.totalPoints}
+          transactions={data.transactions}
+          onAwardGameScore={handleAwardGameScore}
+          onLoginTeacher={handleHomeTeacherLogin}
+          onLoginAdmin={handleHomeAdminLogin}
+          onOpenExport={() => handleOpenExport('newsletter')}
+        />
+
+        {/* Target DOM Element for 5-Format Newsletter Exporter (html2canvas, html2pdf, Word, HTML, JSON) */}
+        <div
+          style={{
+            position: 'fixed',
+            left: '-9999px',
+            top: 0,
+            width: '900px',
+            maxWidth: '900px',
+            zIndex: -1000,
+            opacity: 1,
+            pointerEvents: 'none',
+          }}
+          aria-hidden="true"
+        >
+          <NewsletterPreview
+            id="newsletter-preview"
+            students={data.students}
+            houses={data.houses}
+            studentSummaries={studentSummaries}
+            sportsEvents={data.sportsEvents}
+          />
+        </div>
+
+        {/* Global User Feedback: Loading Overlay for Image and PDF conversions */}
+        <ExportLoadingOverlay />
+
+        {isExportOpen && (
+          <ExportModal
+            isOpen={isExportOpen}
+            onClose={() => setIsExportOpen(false)}
+            students={data.students}
+            houses={data.houses}
+            studentSummaries={studentSummaries}
+            sportsEvents={data.sportsEvents}
+            initialTab={exportInitialTab}
+            initialDivision={exportInitialDivision}
+            initialClass={exportInitialClass}
+          />
+        )}
+      </div>
     );
   }
 
@@ -420,7 +465,7 @@ export default function App() {
         onOpenTeacherProfile={() => setIsTeacherProfileOpen(true)}
         onOpenAdmin={() => setIsAdminOpen(true)}
         onOpenHomePage={() => setIsHomePageActive(true)}
-        onOpenExport={() => handleOpenExport('students')}
+        onOpenExport={() => handleOpenExport('newsletter')}
         leadingHouseName={leader?.house.name}
         leadingHousePoints={leader?.totalPoints}
         isSportsActive={!!activeSportsEvent}
@@ -514,7 +559,7 @@ export default function App() {
               </div>
             )}
 
-            {/* TAB 6: HOUSE COMPETITIONS */}
+            {/* TAB 6: HOUSE COMPETITIONS RESULTS */}
             {activeTab === 'sports' && (
               <div ref={sportsSectionRef} className="animate-in fade-in duration-150">
                 <EventScheduleMatchCenter
@@ -530,7 +575,7 @@ export default function App() {
                   onToggleEventActive={handleToggleEventActive}
                   onUpdateSportsEvents={handleUpdateSportsEvents}
                   onOpenCreateEvent={() => setIsAdminOpen(true)}
-                  onOpenExportSports={() => handleOpenExport('sports')}
+                  onOpenExportSports={() => handleOpenExport('newsletter')}
                 />
               </div>
             )}
@@ -550,7 +595,7 @@ export default function App() {
                   onToggleEventActive={handleToggleEventActive}
                   onUpdateSportsEvents={handleUpdateSportsEvents}
                   onOpenCreateEvent={() => setIsAdminOpen(true)}
-                  onOpenExportSports={() => handleOpenExport('sports')}
+                  onOpenExportSports={() => handleOpenExport('newsletter')}
                 />
               </div>
             )}
@@ -631,7 +676,7 @@ export default function App() {
               </div>
             )}
 
-            {/* TAB 6: HOUSE COMPETITIONS */}
+            {/* TAB 6: HOUSE COMPETITIONS RESULTS */}
             {activeTab === 'sports' && (
               <div ref={sportsSectionRef} className="animate-in fade-in duration-150">
                 <EventScheduleMatchCenter
@@ -647,7 +692,7 @@ export default function App() {
                   onToggleEventActive={handleToggleEventActive}
                   onUpdateSportsEvents={handleUpdateSportsEvents}
                   onOpenCreateEvent={() => setIsAdminOpen(true)}
-                  onOpenExportSports={() => handleOpenExport('sports')}
+                  onOpenExportSports={() => handleOpenExport('newsletter')}
                 />
               </div>
             )}
@@ -667,7 +712,7 @@ export default function App() {
                   onToggleEventActive={handleToggleEventActive}
                   onUpdateSportsEvents={handleUpdateSportsEvents}
                   onOpenCreateEvent={() => setIsAdminOpen(true)}
-                  onOpenExportSports={() => handleOpenExport('sports')}
+                  onOpenExportSports={() => handleOpenExport('newsletter')}
                 />
               </div>
             )}
@@ -834,6 +879,32 @@ export default function App() {
           initialClass={exportInitialClass}
         />
       )}
+
+      {/* Target DOM Element for 5-Format Newsletter Exporter (html2canvas, html2pdf, Word, HTML, JSON) */}
+      <div
+        style={{
+          position: 'fixed',
+          left: '-9999px',
+          top: 0,
+          width: '900px',
+          maxWidth: '900px',
+          zIndex: -1000,
+          opacity: 1,
+          pointerEvents: 'none',
+        }}
+        aria-hidden="true"
+      >
+        <NewsletterPreview
+          id="newsletter-preview"
+          students={data.students}
+          houses={data.houses}
+          studentSummaries={studentSummaries}
+          sportsEvents={data.sportsEvents}
+        />
+      </div>
+
+      {/* Global User Feedback: Loading Overlay for Image and PDF conversions */}
+      <ExportLoadingOverlay />
     </div>
   );
 }

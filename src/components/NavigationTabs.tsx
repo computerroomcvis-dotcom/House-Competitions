@@ -77,7 +77,7 @@ export const NavigationTabs: React.FC<NavigationTabsProps> = ({
                 <span>Find Student Points</span>
               </button>
 
-              {/* Tab 3: House Competitions */}
+              {/* Tab 3: House Competitions Results */}
               <button
                 type="button"
                 id="tab-viewer-sports"
@@ -89,7 +89,7 @@ export const NavigationTabs: React.FC<NavigationTabsProps> = ({
                 }`}
               >
                 <Flame className="w-4 h-4 text-rose-500" />
-                <span>House Competitions</span>
+                <span>House Competitions Results</span>
                 {isSportsActive && (
                   <span className="w-2 h-2 rounded-full bg-rose-500 animate-pulse" />
                 )}
@@ -202,7 +202,7 @@ export const NavigationTabs: React.FC<NavigationTabsProps> = ({
                 <span>Activity Log</span>
               </button>
 
-              {/* Tab 6: House Competitions */}
+              {/* Tab 6: House Competitions Results */}
               <button
                 type="button"
                 id="tab-teacher-sports"
@@ -214,7 +214,7 @@ export const NavigationTabs: React.FC<NavigationTabsProps> = ({
                 }`}
               >
                 <Flame className="w-4 h-4 text-rose-400" />
-                <span>House Competitions</span>
+                <span>House Competitions Results</span>
                 {isSportsActive && (
                   <span className="w-2 h-2 rounded-full bg-rose-500 animate-pulse" />
                 )}
@@ -330,7 +330,7 @@ export const NavigationTabs: React.FC<NavigationTabsProps> = ({
               <span>Activity Log</span>
             </button>
 
-            {/* Tab 6: House Competitions */}
+            {/* Tab 6: House Competitions Results */}
             <button
               type="button"
               id="tab-admin-sports"
@@ -342,7 +342,7 @@ export const NavigationTabs: React.FC<NavigationTabsProps> = ({
               }`}
             >
               <Flame className="w-4 h-4 text-rose-400" />
-              <span>House Competitions</span>
+              <span>House Competitions Results</span>
               {isSportsActive && (
                 <span className="w-2 h-2 rounded-full bg-rose-500 animate-pulse" />
               )}

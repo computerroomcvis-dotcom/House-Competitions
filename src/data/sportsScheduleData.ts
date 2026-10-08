@@ -210,4 +210,74 @@ export const FEATURED_SPORTS_GAMES: SportsActivityEvent[] = [
     participatingStudentIds: [],
     notes: 'Scheduled for 01:30 PM in the Auditorium. Buzzer systems tested and ready.',
   },
+  {
+    id: 'game-swim-gala',
+    title: 'Swimming Gala Freestyle Sprint',
+    description:
+      'High-octane 50m aquatic sprint showdown at the Olympic Aquatics Center. Evaluates flip-turns, diving starts, and pure freestyle endurance across all 4 houses.',
+    category: 'Swimming Gala',
+    date: '2026-02-23',
+    time: '11:15 AM',
+    location: 'Aquatics Center & Pool',
+    venueCode: 'POOL-A',
+    gameType: 'STANDARD',
+    groupCategory: 'Primary & Junior Swimmers',
+    targetPlayersCount: 4,
+    lessThanMinAllowed: false,
+    scoringSystem: '1st: 70 pts | 2nd: 50 pts | 3rd: 35 pts | 4th: 20 pts',
+    scoringBreakdown: {
+      firstPlace: 70,
+      secondPlace: 50,
+      thirdPlace: 35,
+      fourthPlace: 20,
+      bonusNotes: 'Record touch pad time set by Earthshakers lead swimmer',
+    },
+    rules: [
+      'Touch pads active on lane ends; swimmers must touch wall clearly before lane finish.',
+      'False starts trigger immediate recall; second false start results in lane disqualification.',
+      'Points aggregate directly into official House Cup scores upon referee verification.',
+    ],
+    imageUrl:
+      'https://images.unsplash.com/photo-1530549387789-4c1017266635?auto=format&fit=crop&w=1200&q=80',
+    isActive: false, // Completed
+    scores: [
+      { houseId: 'house-earthshakers', points: 70, placement: 1 },
+      { houseId: 'house-thunderhooves', points: 50, placement: 2 },
+      { houseId: 'house-stormchasers', points: 35, placement: 3 },
+      { houseId: 'house-mountainhearts', points: 20, placement: 4 },
+    ],
+    participatingStudentsWithRoles: [
+      {
+        student_name: 'Thichanan L.',
+        house: 'Earthshakers',
+        role: 'Lead Swimmer',
+        studentId: 'stu-es-pk3-2',
+      },
+      {
+        student_name: 'Kannisa T.',
+        house: 'Thunderhooves',
+        role: 'Freestyle Anchor',
+        studentId: 'stu-th-pk3-3',
+      },
+      {
+        student_name: 'Poomrapee W.',
+        house: 'Stormchasers',
+        role: 'Lane 3 Competitor',
+        studentId: 'stu-sc-pk4-1',
+      },
+      {
+        student_name: 'Linlada P.',
+        house: 'Mountainhearts',
+        role: 'Lane 4 Competitor',
+        studentId: 'stu-mh-pk4-3',
+      },
+    ],
+    participatingStudentIds: [
+      'stu-es-pk3-2',
+      'stu-th-pk3-3',
+      'stu-sc-pk4-1',
+      'stu-mh-pk4-3',
+    ],
+    notes: 'Completed at 11:55 AM. Earthshakers claimed 1st place in the 50m sprint final.',
+  },
 ];
