@@ -28,6 +28,8 @@ import {
   Calendar,
   Users,
   CalendarCheck,
+  Mail,
+  Grid,
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { AnimatedCounter } from './AnimatedCounter';
@@ -57,6 +59,8 @@ interface HomePageProps {
   ) => void;
   onLoginTeacher: (teacher: TeacherUser) => void;
   onLoginAdmin: (adminUser?: AdminUser) => void;
+  onOpenNewsletterExporter?: () => void;
+  onOpenEventCardsExporter?: () => void;
 }
 
 export const HomePage: React.FC<HomePageProps> = ({
@@ -75,6 +79,8 @@ export const HomePage: React.FC<HomePageProps> = ({
   onAwardGameScore,
   onLoginTeacher,
   onLoginAdmin,
+  onOpenNewsletterExporter,
+  onOpenEventCardsExporter,
 }) => {
   // Modal states for small buttons at top
   const [showTeacherModal, setShowTeacherModal] = useState(false);
@@ -593,8 +599,35 @@ export const HomePage: React.FC<HomePageProps> = ({
           </div>
         </div>
 
-        {/* Small Top Action Buttons (Teacher Login & Admin Login) */}
+        {/* Small Top Action Buttons (Exporters, Teacher Login & Admin Login) */}
         <div className="flex items-center gap-2 shrink-0">
+          {/* Quick Exporters */}
+          {onOpenNewsletterExporter && (
+            <button
+              type="button"
+              id="home-newsletter-exporter-btn"
+              onClick={onOpenNewsletterExporter}
+              title="Open Newsletter Exporter (PDF / HTML)"
+              className="hidden lg:inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-bold bg-indigo-500/15 hover:bg-indigo-500/25 text-indigo-300 border border-indigo-500/30 transition-all cursor-pointer"
+            >
+              <Mail className="w-3.5 h-3.5 text-indigo-400" />
+              <span>Newsletter Exporter</span>
+            </button>
+          )}
+
+          {onOpenEventCardsExporter && (
+            <button
+              type="button"
+              id="home-cards-exporter-btn"
+              onClick={onOpenEventCardsExporter}
+              title="Open Event Cards Batch Exporter (Grid Sheet / CSV)"
+              className="hidden lg:inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-bold bg-amber-400/15 hover:bg-amber-400/25 text-amber-300 border border-amber-400/30 transition-all cursor-pointer"
+            >
+              <Grid className="w-3.5 h-3.5 text-amber-400" />
+              <span>Event Cards Exporter</span>
+            </button>
+          )}
+
           {/* Celebrate Button */}
           <button
             type="button"

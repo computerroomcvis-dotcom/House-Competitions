@@ -43,6 +43,8 @@ import { HomePage } from './components/HomePage';
 import { TeacherQuickAwardView } from './components/TeacherQuickAwardView';
 import { AdvancedAwardView } from './components/AdvancedAwardView';
 import { EventScheduleMatchCenter } from './components/EventScheduleMatchCenter';
+import { NewsletterExporterModal } from './components/NewsletterExporterModal';
+import { EventCardsBatchExporterModal } from './components/EventCardsBatchExporterModal';
 import { Trophy, GraduationCap, Shield } from 'lucide-react';
 
 export default function App() {
@@ -64,6 +66,8 @@ export default function App() {
   const [isShareOpen, setIsShareOpen] = useState(false);
   const [isTeacherProfileOpen, setIsTeacherProfileOpen] = useState(false);
   const [isAdminOpen, setIsAdminOpen] = useState(false);
+  const [isNewsletterExporterOpen, setIsNewsletterExporterOpen] = useState(false);
+  const [isEventCardsExporterOpen, setIsEventCardsExporterOpen] = useState(false);
 
   // Selected student for detail history
   const [selectedStudentHistoryId, setSelectedStudentHistoryId] = useState<
@@ -396,6 +400,26 @@ export default function App() {
           onAwardGameScore={handleAwardGameScore}
           onLoginTeacher={handleHomeTeacherLogin}
           onLoginAdmin={handleHomeAdminLogin}
+          onOpenNewsletterExporter={() => setIsNewsletterExporterOpen(true)}
+          onOpenEventCardsExporter={() => setIsEventCardsExporterOpen(true)}
+        />
+
+        {/* Exporter Modals accessible from HomePage */}
+        <NewsletterExporterModal
+          isOpen={isNewsletterExporterOpen}
+          onClose={() => setIsNewsletterExporterOpen(false)}
+          houses={data.houses}
+          students={data.students}
+          sportsEvents={data.sportsEvents}
+          transactions={data.transactions}
+        />
+
+        <EventCardsBatchExporterModal
+          isOpen={isEventCardsExporterOpen}
+          onClose={() => setIsEventCardsExporterOpen(false)}
+          sportsEvents={data.sportsEvents}
+          houses={data.houses}
+          students={data.students}
         />
       </div>
     );
@@ -414,6 +438,8 @@ export default function App() {
         onOpenTeacherProfile={() => setIsTeacherProfileOpen(true)}
         onOpenAdmin={() => setIsAdminOpen(true)}
         onOpenHomePage={() => setIsHomePageActive(true)}
+        onOpenNewsletterExporter={() => setIsNewsletterExporterOpen(true)}
+        onOpenEventCardsExporter={() => setIsEventCardsExporterOpen(true)}
         leadingHouseName={leader?.house.name}
         leadingHousePoints={leader?.totalPoints}
         isSportsActive={!!activeSportsEvent}
@@ -788,6 +814,8 @@ export default function App() {
           onUpdateTabSettings={handleUpdateTabSettings}
           onResetPointsOnly={handleResetPointsOnly}
           onResetAllDefaults={handleResetAllDefaults}
+          onOpenNewsletterExporter={() => setIsNewsletterExporterOpen(true)}
+          onOpenEventCardsExporter={() => setIsEventCardsExporterOpen(true)}
         />
       )}
 
@@ -814,6 +842,24 @@ export default function App() {
           onSwitchToPublic={handleLogout}
         />
       )}
+
+      {/* Exporter Modals */}
+      <NewsletterExporterModal
+        isOpen={isNewsletterExporterOpen}
+        onClose={() => setIsNewsletterExporterOpen(false)}
+        houses={data.houses}
+        students={data.students}
+        sportsEvents={data.sportsEvents}
+        transactions={data.transactions}
+      />
+
+      <EventCardsBatchExporterModal
+        isOpen={isEventCardsExporterOpen}
+        onClose={() => setIsEventCardsExporterOpen(false)}
+        sportsEvents={data.sportsEvents}
+        houses={data.houses}
+        students={data.students}
+      />
     </div>
   );
 }

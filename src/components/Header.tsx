@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { CurrentUser } from '../types';
 import {
   LogOut,
@@ -6,6 +6,10 @@ import {
   Shield,
   Home,
   Trophy,
+  Mail,
+  Grid,
+  ChevronDown,
+  Download,
 } from 'lucide-react';
 import { AnimatedCounter } from './AnimatedCounter';
 
@@ -19,6 +23,8 @@ interface HeaderProps {
   onOpenTeacherProfile?: () => void;
   onOpenAdmin?: () => void;
   onOpenHomePage?: () => void;
+  onOpenNewsletterExporter?: () => void;
+  onOpenEventCardsExporter?: () => void;
   leadingHouseName?: string;
   leadingHousePoints?: number;
   isSportsActive?: boolean;
@@ -33,7 +39,21 @@ export const Header: React.FC<HeaderProps> = ({
   onOpenTeacherProfile,
   onOpenAdmin,
   onOpenHomePage,
+  onOpenNewsletterExporter,
+  onOpenEventCardsExporter,
 }) => {
+  const [isExportMenuOpen, setIsExportMenuOpen] = useState(false);
+  const exportMenuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (exportMenuRef.current && !exportMenuRef.current.contains(e.target as Node)) {
+        setIsExportMenuOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
   return (
     <header className="bg-[#161B22] border-b border-slate-800 sticky top-0 z-30 shadow-lg text-slate-100">
       <div className="max-w-7xl mx-auto px-3.5 sm:px-6 lg:px-8">
@@ -105,8 +125,81 @@ export const Header: React.FC<HeaderProps> = ({
             />
           </div>
 
-          {/* Right: Auth Controls */}
+          {/* Right: Auth & Export Controls */}
           <div className="flex items-center gap-2 sm:gap-2.5 shrink-0">
+            {/* Exporters Dropdown */}
+            {(onOpenNewsletterExporter || onOpenEventCardsExporter) && (
+              <div className="relative" ref={exportMenuRef}>
+                <button
+                  type="button"
+                  id="header-exporters-btn"
+                  onClick={() => setIsExportMenuOpen((prev) => !prev)}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 sm:py-2 text-xs font-bold text-slate-200 bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded-xl transition-all cursor-pointer shadow-xs"
+                  title="School Exporters (Newsletter & Event Cards)"
+                >
+                  <Download className="w-3.5 h-3.5 text-amber-400" />
+                  <span className="hidden sm:inline">Exporters</span>
+                  <ChevronDown
+                    className={`w-3.5 h-3.5 text-slate-400 transition-transform ${
+                      isExportMenuOpen ? 'rotate-180' : ''
+                    }`}
+                  />
+                </button>
+
+                {isExportMenuOpen && (
+                  <div className="absolute right-0 mt-2 w-64 bg-[#161B22] border border-slate-700 rounded-2xl shadow-2xl p-2 z-50 animate-in fade-in slide-in-from-top-2 duration-150">
+                    <div className="px-3 py-1.5 text-[10px] font-black uppercase tracking-wider text-slate-400 border-b border-slate-800">
+                      Export &amp; Print Tools
+                    </div>
+
+                    {onOpenNewsletterExporter && (
+                      <button
+                        type="button"
+                        id="btn-open-newsletter-exporter"
+                        onClick={() => {
+                          setIsExportMenuOpen(false);
+                          onOpenNewsletterExporter();
+                        }}
+                        className="w-full mt-1 flex items-start gap-2.5 p-2.5 rounded-xl hover:bg-slate-800/80 text-left transition-colors cursor-pointer group"
+                      >
+                        <div className="w-8 h-8 rounded-lg bg-indigo-500/10 border border-indigo-500/30 flex items-center justify-center text-indigo-400 shrink-0 group-hover:bg-indigo-600 group-hover:text-white transition-colors">
+                          <Mail className="w-4 h-4" />
+                        </div>
+                        <div>
+                          <strong className="text-xs text-white block">Newsletter Exporter</strong>
+                          <span className="text-[10px] text-slate-400 block leading-tight">
+                            Grade/Division &bull; PDF &bull; HTML
+                          </span>
+                        </div>
+                      </button>
+                    )}
+
+                    {onOpenEventCardsExporter && (
+                      <button
+                        type="button"
+                        id="btn-open-event-cards-exporter"
+                        onClick={() => {
+                          setIsExportMenuOpen(false);
+                          onOpenEventCardsExporter();
+                        }}
+                        className="w-full mt-1 flex items-start gap-2.5 p-2.5 rounded-xl hover:bg-slate-800/80 text-left transition-colors cursor-pointer group"
+                      >
+                        <div className="w-8 h-8 rounded-lg bg-amber-500/10 border border-amber-500/30 flex items-center justify-center text-amber-400 shrink-0 group-hover:bg-amber-400 group-hover:text-slate-950 transition-colors">
+                          <Grid className="w-4 h-4" />
+                        </div>
+                        <div>
+                          <strong className="text-xs text-white block">Event Cards Batch</strong>
+                          <span className="text-[10px] text-slate-400 block leading-tight">
+                            Cuttable Grid Sheets &bull; CSV Roster
+                          </span>
+                        </div>
+                      </button>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
+
             {/* 1. TEACHER LOGGED IN */}
             {currentUser.role === 'teacher' && currentUser.teacher && (
               <>

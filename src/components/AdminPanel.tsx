@@ -39,6 +39,10 @@ import {
   Check,
   Upload,
   Sliders,
+  Mail,
+  Grid,
+  Printer,
+  Download,
 } from 'lucide-react';
 
 interface AdminPanelProps {
@@ -62,6 +66,8 @@ interface AdminPanelProps {
   ) => void;
   onResetPointsOnly: () => void;
   onResetAllDefaults: () => void;
+  onOpenNewsletterExporter?: () => void;
+  onOpenEventCardsExporter?: () => void;
 }
 
 const COLOR_PRESETS = [
@@ -93,6 +99,8 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
   onUpdateEventScores,
   onResetPointsOnly,
   onResetAllDefaults,
+  onOpenNewsletterExporter,
+  onOpenEventCardsExporter,
 }) => {
   const [activeTab, setActiveTab] = useState<
     'houses' | 'leadership' | 'students' | 'teachers' | 'sports' | 'settings' | 'data'
@@ -2433,6 +2441,71 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
             {/* TAB 7: DATA BACKUP & RESET */}
             {activeTab === 'data' && (
               <div className="space-y-6 animate-in fade-in duration-150">
+                {/* Official Publishing & Exporters */}
+                <div className="bg-[#161B22] rounded-xl border border-[#30363d] p-5 shadow-sm space-y-4">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h3 className="text-base font-bold text-[#F0F6FC] flex items-center gap-2">
+                        <Printer className="w-4 h-4 text-indigo-400" />
+                        <span>Official Publishing &amp; Exporters</span>
+                      </h3>
+                      <p className="text-xs text-slate-400 leading-relaxed mt-0.5">
+                        Generate formatted school newsletters (Printable PDF or HTML email snippets) and print-ready event badge card sheets with QR codes or CSV rosters.
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-1">
+                    {/* Exporter 1: Newsletter */}
+                    <div className="p-4 rounded-xl bg-[#0D1117] border border-indigo-500/30 space-y-2.5 flex flex-col justify-between">
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <span className="p-1 rounded bg-indigo-500/20 text-indigo-400">
+                            <Mail className="w-4 h-4" />
+                          </span>
+                          <h4 className="text-sm font-bold text-white">Grade &amp; Division Newsletter</h4>
+                        </div>
+                        <p className="text-xs text-slate-400 mt-1">
+                          Compose newsletters filtered by grade or division. Includes 4 themes, customizable sections, print stylesheet, and email HTML generator.
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        id="admin-launch-newsletter-exporter-btn"
+                        onClick={onOpenNewsletterExporter}
+                        className="w-full mt-2 py-2 px-3 text-xs font-bold text-white bg-indigo-600 hover:bg-indigo-500 rounded-md flex items-center justify-center gap-1.5 cursor-pointer transition-colors shadow-sm"
+                      >
+                        <Mail className="w-4 h-4" />
+                        <span>Launch Newsletter Exporter</span>
+                      </button>
+                    </div>
+
+                    {/* Exporter 2: Event Cards Batch */}
+                    <div className="p-4 rounded-xl bg-[#0D1117] border border-amber-500/30 space-y-2.5 flex flex-col justify-between">
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <span className="p-1 rounded bg-amber-500/20 text-amber-400">
+                            <Grid className="w-4 h-4" />
+                          </span>
+                          <h4 className="text-sm font-bold text-white">House Event Cards Batch</h4>
+                        </div>
+                        <p className="text-xs text-slate-400 mt-1">
+                          Batch print 8-up, 6-up, or 4-up cuttable card sheets with dynamic SVG QR codes, house badges, and download RFC-4180 CSV rosters.
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        id="admin-launch-event-cards-exporter-btn"
+                        onClick={onOpenEventCardsExporter}
+                        className="w-full mt-2 py-2 px-3 text-xs font-bold text-slate-950 bg-amber-400 hover:bg-amber-300 rounded-md flex items-center justify-center gap-1.5 cursor-pointer transition-colors shadow-sm font-black"
+                      >
+                        <Grid className="w-4 h-4 text-slate-950" />
+                        <span>Launch Event Cards Exporter</span>
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
                 <div className="bg-[#161B22] rounded-xl border border-[#30363d] p-5 shadow-sm space-y-4">
                   <h3 className="text-base font-bold text-[#F0F6FC]">
                     Data Backup &amp; Semester Maintenance
