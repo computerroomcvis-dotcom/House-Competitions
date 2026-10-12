@@ -16,7 +16,6 @@ import {
   Compass,
   Zap,
   MapPin,
-  Download,
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 
@@ -29,7 +28,6 @@ interface SportsWeekSectionProps {
   onToggleEventActive: (eventId: string, isActive: boolean) => void;
   onUpdateSportsEvents: (newEvents: SportsActivityEvent[]) => void;
   onOpenCreateEvent?: () => void;
-  onOpenExportSports?: () => void;
 }
 
 export const SportsWeekSection: React.FC<SportsWeekSectionProps> = ({
@@ -40,7 +38,6 @@ export const SportsWeekSection: React.FC<SportsWeekSectionProps> = ({
   onUpdateEventScores,
   onToggleEventActive,
   onUpdateSportsEvents,
-  onOpenExportSports,
 }) => {
   const canEdit = currentUser.role === 'teacher' || currentUser.role === 'admin';
 
@@ -82,10 +79,21 @@ export const SportsWeekSection: React.FC<SportsWeekSectionProps> = ({
 
   // Delete event
   const handleDeleteEvent = (eventId: string, title: string) => {
-    if (confirm(`Are you sure you want to delete the game "${title}"?`)) {
-      const updated = sportsEvents.filter((e) => e.id !== eventId);
-      onUpdateSportsEvents(updated);
+    try {
+      if (
+        typeof window !== 'undefined' &&
+        typeof window.confirm === 'function' &&
+        !window.confirm.toString().includes('[native code]')
+      ) {
+        if (!window.confirm(`Are you sure you want to delete the game "${title}"?`)) {
+          return;
+        }
+      }
+    } catch {
+      // ignore
     }
+    const updated = sportsEvents.filter((e) => e.id !== eventId);
+    onUpdateSportsEvents(updated);
   };
 
   // Direct image update on card
@@ -155,19 +163,6 @@ export const SportsWeekSection: React.FC<SportsWeekSectionProps> = ({
 
           {/* Quick Action Buttons */}
           <div className="shrink-0 flex items-center gap-2.5 flex-wrap">
-            {onOpenExportSports && (
-              <button
-                type="button"
-                id="export-sports-cards-pdf-btn"
-                onClick={onOpenExportSports}
-                className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-4 py-3 rounded-xl bg-white/10 hover:bg-white/20 border border-white/20 text-white font-bold text-xs sm:text-sm shadow-md transition-all cursor-pointer"
-                title="Export all sports week games into printable little card PDF"
-              >
-                <Download className="w-4 h-4 text-rose-400" />
-                <span>Export Cards (PDF)</span>
-              </button>
-            )}
-
             {canEdit && (
               <button
                 type="button"

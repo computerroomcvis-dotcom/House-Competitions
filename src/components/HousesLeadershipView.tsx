@@ -110,10 +110,18 @@ export const HousesLeadershipView: React.FC<HousesLeadershipViewProps> = ({
                 >
                   <div className="flex items-center justify-between mb-2">
                     <span
-                      className="w-8 h-8 rounded-lg flex items-center justify-center text-white shadow-xs font-bold text-xs"
+                      className="w-8 h-8 rounded-lg flex items-center justify-center text-white shadow-xs font-bold text-xs overflow-hidden shrink-0"
                       style={{ backgroundColor: house.color }}
                     >
-                      {house.name.replace('House of ', '').charAt(0)}
+                      {house.logoUrl ? (
+                        <img
+                          src={house.logoUrl}
+                          alt={house.name}
+                          className="w-full h-full object-contain p-0.5 bg-white/20"
+                        />
+                      ) : (
+                        house.name.replace('House of ', '').charAt(0)
+                      )}
                     </span>
                     <span
                       className="text-[11px] font-bold px-2 py-0.5 rounded-full"
@@ -144,23 +152,34 @@ export const HousesLeadershipView: React.FC<HousesLeadershipViewProps> = ({
                 className="p-5 sm:p-6 text-white flex flex-col sm:flex-row sm:items-center justify-between gap-4"
                 style={{ backgroundColor: selectedHouse.color }}
               >
-                <div>
-                  <div className="flex items-center gap-2 mb-1">
-                    <span className="text-[11px] font-bold uppercase tracking-wider bg-black/25 px-2.5 py-0.5 rounded-full">
-                      Official House Handbook Profile
-                    </span>
-                    {selectedHouse.mascot && (
-                      <span className="text-[11px] font-bold bg-black/20 px-2 py-0.5 rounded-full border border-white/20">
-                        🐾 Mascot: {selectedHouse.mascot}
+                <div className="flex items-center gap-3.5">
+                  {selectedHouse.logoUrl && (
+                    <div className="w-16 h-16 rounded-2xl bg-white/20 border-2 border-white/40 p-1 flex items-center justify-center shrink-0 shadow-lg backdrop-blur-xs">
+                      <img
+                        src={selectedHouse.logoUrl}
+                        alt={selectedHouse.name}
+                        className="w-full h-full object-contain"
+                      />
+                    </div>
+                  )}
+                  <div>
+                    <div className="flex items-center gap-2 mb-1">
+                      <span className="text-[11px] font-bold uppercase tracking-wider bg-black/25 px-2.5 py-0.5 rounded-full">
+                        Official House Handbook Profile
                       </span>
-                    )}
+                      {selectedHouse.mascot && (
+                        <span className="text-[11px] font-bold bg-black/20 px-2 py-0.5 rounded-full border border-white/20">
+                          🐾 Mascot: {selectedHouse.mascot}
+                        </span>
+                      )}
+                    </div>
+                    <h3 className="text-xl sm:text-2xl font-extrabold font-['Outfit'] mt-1 text-white">
+                      {selectedHouse.name}
+                    </h3>
+                    <p className="text-white/95 text-xs sm:text-sm italic mt-0.5 font-medium">
+                      &quot;{selectedHouse.motto}&quot;
+                    </p>
                   </div>
-                  <h3 className="text-xl sm:text-2xl font-extrabold font-['Outfit'] mt-1 text-white">
-                    {selectedHouse.name}
-                  </h3>
-                  <p className="text-white/95 text-xs sm:text-sm italic mt-0.5 font-medium">
-                    &quot;{selectedHouse.motto}&quot;
-                  </p>
                 </div>
                 <div className="bg-black/25 backdrop-blur-xs rounded-xl p-3 border border-white/20 self-start sm:self-auto text-center min-w-[130px]">
                   <p className="text-2xl font-black text-white">{houseStudents.length}</p>

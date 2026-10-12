@@ -43,6 +43,7 @@ export interface House {
   mascot: string; // e.g. 'Mighty Elephant', 'Agile Ibex', 'Majestic Eagle', 'Spirited Horse'
   motto: string;
   iconName: 'Flame' | 'Shield' | 'Award' | 'Zap' | 'Crown' | 'Feather' | 'Star' | 'Compass';
+  logoUrl?: string; // Custom uploaded or configured house logo
   officialColors?: string[]; // e.g. ['Green', 'Brown', 'Gray']
   colorHexList?: string[]; // Hex codes for the official colors
   colorDescription?: string; // Meaning of the colors from official handbook
@@ -50,6 +51,22 @@ export interface House {
   flagDescription?: string;
   themeVirtues?: string[]; // Core virtues (e.g. ['Wisdom', 'Patience', 'Grace'])
 }
+
+export interface TabSettings {
+  events_enabled: boolean;
+  events_disabled_message: string;
+  results_enabled: boolean;
+  results_disabled_message: string;
+}
+
+export const DEFAULT_TAB_SETTINGS: TabSettings = {
+  events_enabled: true,
+  events_disabled_message:
+    'The House Competitions Events tab is currently closed. Please check back soon for upcoming matches!',
+  results_enabled: true,
+  results_disabled_message:
+    'The House Competition Results tab is currently closed. Please check back soon for tournament results and scores!',
+};
 
 export interface Student {
   id: string;

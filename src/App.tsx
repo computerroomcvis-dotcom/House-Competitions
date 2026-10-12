@@ -8,6 +8,7 @@ import {
   SportsActivityEvent,
   CurrentUser,
   GradeLevel,
+  TabSettings,
 } from './types';
 import {
   loadInitialData,
@@ -17,6 +18,7 @@ import {
   saveAdminUsers,
   saveTransactions,
   saveSportsEvents,
+  saveTabSettings,
   saveCurrentUser,
   loadCurrentUser,
   resetAllToDefaults,
@@ -40,10 +42,7 @@ import { ShareModal } from './components/ShareModal';
 import { HomePage } from './components/HomePage';
 import { TeacherQuickAwardView } from './components/TeacherQuickAwardView';
 import { AdvancedAwardView } from './components/AdvancedAwardView';
-import { ExportModal } from './components/ExportModal';
 import { EventScheduleMatchCenter } from './components/EventScheduleMatchCenter';
-import { NewsletterPreview } from './components/NewsletterPreview';
-import { ExportLoadingOverlay } from './components/ExportLoadingOverlay';
 import { Trophy, GraduationCap, Shield } from 'lucide-react';
 
 export default function App() {
@@ -65,21 +64,6 @@ export default function App() {
   const [isShareOpen, setIsShareOpen] = useState(false);
   const [isTeacherProfileOpen, setIsTeacherProfileOpen] = useState(false);
   const [isAdminOpen, setIsAdminOpen] = useState(false);
-  const [isExportOpen, setIsExportOpen] = useState(false);
-  const [exportInitialTab, setExportInitialTab] = useState<'newsletter' | 'students'>('newsletter');
-  const [exportInitialDivision, setExportInitialDivision] = useState<'TP-GK' | 'G1-G5'>('TP-GK');
-  const [exportInitialClass, setExportInitialClass] = useState<GradeLevel>('Grade 1');
-
-  const handleOpenExport = (
-    tab: 'newsletter' | 'students' = 'newsletter',
-    division?: 'TP-GK' | 'G1-G5',
-    classLevel?: GradeLevel
-  ) => {
-    setExportInitialTab(tab);
-    if (division) setExportInitialDivision(division);
-    if (classLevel) setExportInitialClass(classLevel);
-    setIsExportOpen(true);
-  };
 
   // Selected student for detail history
   const [selectedStudentHistoryId, setSelectedStudentHistoryId] = useState<
@@ -178,6 +162,11 @@ export default function App() {
   const handleUpdateSportsEvents = (newEvents: SportsActivityEvent[]) => {
     saveSportsEvents(newEvents);
     setData((prev) => ({ ...prev, sportsEvents: newEvents }));
+  };
+
+  const handleUpdateTabSettings = (newSettings: TabSettings) => {
+    saveTabSettings(newSettings);
+    setData((prev) => ({ ...prev, tabSettings: newSettings }));
   };
 
   const handleUpdateEventScores = (
@@ -403,50 +392,11 @@ export default function App() {
           leadingHouse={leader?.house}
           leadingHousePoints={leader?.totalPoints}
           transactions={data.transactions}
+          tabSettings={data.tabSettings}
           onAwardGameScore={handleAwardGameScore}
           onLoginTeacher={handleHomeTeacherLogin}
           onLoginAdmin={handleHomeAdminLogin}
         />
-
-        {/* Target DOM Element for 5-Format Newsletter Exporter (html2canvas, html2pdf, Word, HTML, JSON) */}
-        <div
-          style={{
-            position: 'fixed',
-            left: '-9999px',
-            top: 0,
-            width: '900px',
-            maxWidth: '900px',
-            zIndex: -1000,
-            opacity: 1,
-            pointerEvents: 'none',
-          }}
-          aria-hidden="true"
-        >
-          <NewsletterPreview
-            id="newsletter-preview"
-            students={data.students}
-            houses={data.houses}
-            studentSummaries={studentSummaries}
-            sportsEvents={data.sportsEvents}
-          />
-        </div>
-
-        {/* Global User Feedback: Loading Overlay for Image and PDF conversions */}
-        <ExportLoadingOverlay />
-
-        {isExportOpen && (
-          <ExportModal
-            isOpen={isExportOpen}
-            onClose={() => setIsExportOpen(false)}
-            students={data.students}
-            houses={data.houses}
-            studentSummaries={studentSummaries}
-            sportsEvents={data.sportsEvents}
-            initialTab={exportInitialTab}
-            initialDivision={exportInitialDivision}
-            initialClass={exportInitialClass}
-          />
-        )}
       </div>
     );
   }
@@ -464,7 +414,6 @@ export default function App() {
         onOpenTeacherProfile={() => setIsTeacherProfileOpen(true)}
         onOpenAdmin={() => setIsAdminOpen(true)}
         onOpenHomePage={() => setIsHomePageActive(true)}
-        onOpenExport={() => handleOpenExport('newsletter')}
         leadingHouseName={leader?.house.name}
         leadingHousePoints={leader?.totalPoints}
         isSportsActive={!!activeSportsEvent}
@@ -480,6 +429,7 @@ export default function App() {
         onTabChange={handleNavTabChange}
         isSportsActive={!!activeSportsEvent}
         currentUser={currentUser}
+        tabSettings={data.tabSettings}
       />
 
       {/* 3. Main Dashboard Body (Restricted to Teacher and Admin) */}
@@ -499,7 +449,6 @@ export default function App() {
                   onAwardPoints={handleAwardPoints}
                   onUndoTransaction={handleDeleteTransaction}
                   onOpenFullAwardModal={(hId, sId) => handleOpenAddPointsModal(undefined, sId)}
-                  onOpenExport={() => handleOpenExport('students')}
                 />
               </div>
             )}
@@ -567,6 +516,7 @@ export default function App() {
                   students={data.students}
                   currentUser={currentUser}
                   transactions={data.transactions}
+                  tabSettings={data.tabSettings}
                   viewMode="overview"
                   onNavigateToEvents={() => setActiveTab('sports-events')}
                   onAwardGameScore={handleAwardGameScore}
@@ -574,7 +524,6 @@ export default function App() {
                   onToggleEventActive={handleToggleEventActive}
                   onUpdateSportsEvents={handleUpdateSportsEvents}
                   onOpenCreateEvent={() => setIsAdminOpen(true)}
-                  onOpenExportSports={() => handleOpenExport('newsletter')}
                 />
               </div>
             )}
@@ -588,13 +537,13 @@ export default function App() {
                   students={data.students}
                   currentUser={currentUser}
                   transactions={data.transactions}
+                  tabSettings={data.tabSettings}
                   viewMode="cards"
                   onAwardGameScore={handleAwardGameScore}
                   onUpdateEventScores={handleUpdateEventScores}
                   onToggleEventActive={handleToggleEventActive}
                   onUpdateSportsEvents={handleUpdateSportsEvents}
                   onOpenCreateEvent={() => setIsAdminOpen(true)}
-                  onOpenExportSports={() => handleOpenExport('newsletter')}
                 />
               </div>
             )}
@@ -616,7 +565,6 @@ export default function App() {
                   onAwardPoints={handleAwardPoints}
                   onUndoTransaction={handleDeleteTransaction}
                   onOpenFullAwardModal={(hId, sId) => handleOpenAddPointsModal(undefined, sId)}
-                  onOpenExport={() => handleOpenExport('students')}
                 />
               </div>
             )}
@@ -684,6 +632,7 @@ export default function App() {
                   students={data.students}
                   currentUser={currentUser}
                   transactions={data.transactions}
+                  tabSettings={data.tabSettings}
                   viewMode="overview"
                   onNavigateToEvents={() => setActiveTab('sports-events')}
                   onAwardGameScore={handleAwardGameScore}
@@ -691,7 +640,6 @@ export default function App() {
                   onToggleEventActive={handleToggleEventActive}
                   onUpdateSportsEvents={handleUpdateSportsEvents}
                   onOpenCreateEvent={() => setIsAdminOpen(true)}
-                  onOpenExportSports={() => handleOpenExport('newsletter')}
                 />
               </div>
             )}
@@ -705,13 +653,13 @@ export default function App() {
                   students={data.students}
                   currentUser={currentUser}
                   transactions={data.transactions}
+                  tabSettings={data.tabSettings}
                   viewMode="cards"
                   onAwardGameScore={handleAwardGameScore}
                   onUpdateEventScores={handleUpdateEventScores}
                   onToggleEventActive={handleToggleEventActive}
                   onUpdateSportsEvents={handleUpdateSportsEvents}
                   onOpenCreateEvent={() => setIsAdminOpen(true)}
-                  onOpenExportSports={() => handleOpenExport('newsletter')}
                 />
               </div>
             )}
@@ -831,11 +779,13 @@ export default function App() {
           teachers={data.teachers}
           adminUsers={data.adminUsers || []}
           sportsEvents={data.sportsEvents}
+          tabSettings={data.tabSettings}
           onUpdateHouses={handleUpdateHouses}
           onUpdateStudents={handleUpdateStudents}
           onUpdateTeachers={handleUpdateTeachers}
           onUpdateAdminUsers={handleUpdateAdminUsers}
           onUpdateSportsEvents={handleUpdateSportsEvents}
+          onUpdateTabSettings={handleUpdateTabSettings}
           onResetPointsOnly={handleResetPointsOnly}
           onResetAllDefaults={handleResetAllDefaults}
         />
@@ -864,46 +814,6 @@ export default function App() {
           onSwitchToPublic={handleLogout}
         />
       )}
-
-      {isExportOpen && (
-        <ExportModal
-          isOpen={isExportOpen}
-          onClose={() => setIsExportOpen(false)}
-          students={data.students}
-          houses={data.houses}
-          studentSummaries={studentSummaries}
-          sportsEvents={data.sportsEvents}
-          initialTab={exportInitialTab}
-          initialDivision={exportInitialDivision}
-          initialClass={exportInitialClass}
-        />
-      )}
-
-      {/* Target DOM Element for 5-Format Newsletter Exporter (html2canvas, html2pdf, Word, HTML, JSON) */}
-      <div
-        style={{
-          position: 'fixed',
-          left: '-9999px',
-          top: 0,
-          width: '900px',
-          maxWidth: '900px',
-          zIndex: -1000,
-          opacity: 1,
-          pointerEvents: 'none',
-        }}
-        aria-hidden="true"
-      >
-        <NewsletterPreview
-          id="newsletter-preview"
-          students={data.students}
-          houses={data.houses}
-          studentSummaries={studentSummaries}
-          sportsEvents={data.sportsEvents}
-        />
-      </div>
-
-      {/* Global User Feedback: Loading Overlay for Image and PDF conversions */}
-      <ExportLoadingOverlay />
     </div>
   );
 }

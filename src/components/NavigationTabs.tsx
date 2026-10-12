@@ -1,5 +1,5 @@
 import React from 'react';
-import { CurrentUser } from '../types';
+import { CurrentUser, TabSettings } from '../types';
 import {
   Trophy,
   Users,
@@ -30,6 +30,7 @@ interface NavigationTabsProps {
   onTabChange: (tab: ActiveNavTab) => void;
   isSportsActive?: boolean;
   currentUser?: CurrentUser;
+  tabSettings?: TabSettings;
 }
 
 export const NavigationTabs: React.FC<NavigationTabsProps> = ({
@@ -37,6 +38,7 @@ export const NavigationTabs: React.FC<NavigationTabsProps> = ({
   onTabChange,
   isSportsActive = true,
   currentUser,
+  tabSettings,
 }) => {
   const role = currentUser?.role || 'public';
 
@@ -45,8 +47,8 @@ export const NavigationTabs: React.FC<NavigationTabsProps> = ({
     return (
       <div className="bg-[#161B22] border-b border-slate-800">
         <div className="max-w-7xl mx-auto px-3.5 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between py-2 overflow-x-auto no-scrollbar gap-2">
-            <nav className="flex items-center gap-1.5" aria-label="Viewer Navigation">
+          <div className="flex flex-wrap items-center justify-between py-2 gap-2">
+            <nav className="flex flex-wrap items-center gap-1.5" aria-label="Viewer Navigation">
               {/* Tab 1: House Standings */}
               <button
                 type="button"
@@ -90,9 +92,13 @@ export const NavigationTabs: React.FC<NavigationTabsProps> = ({
               >
                 <Flame className="w-4 h-4 text-rose-500" />
                 <span>House Competitions Results</span>
-                {isSportsActive && (
+                {tabSettings && !tabSettings.results_enabled ? (
+                  <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-rose-950/40 text-rose-400 border border-rose-900/40">
+                    Offline
+                  </span>
+                ) : isSportsActive ? (
                   <span className="w-2 h-2 rounded-full bg-rose-500 animate-pulse" />
-                )}
+                ) : null}
               </button>
 
               {/* Tab 4: House Competitions Events */}
@@ -108,6 +114,11 @@ export const NavigationTabs: React.FC<NavigationTabsProps> = ({
               >
                 <CalendarCheck className="w-4 h-4 text-amber-500" />
                 <span>House Competitions Events</span>
+                {tabSettings && !tabSettings.events_enabled && (
+                  <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-rose-950/40 text-rose-400 border border-rose-900/40">
+                    Offline
+                  </span>
+                )}
               </button>
             </nav>
 
@@ -125,8 +136,8 @@ export const NavigationTabs: React.FC<NavigationTabsProps> = ({
     return (
       <div className="bg-[#161B22] border-b border-slate-800">
         <div className="max-w-7xl mx-auto px-3.5 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between py-2 overflow-x-auto no-scrollbar gap-2">
-            <nav className="flex items-center gap-1.5" aria-label="Teacher Navigation">
+          <div className="flex flex-wrap items-center justify-between py-2 gap-2">
+            <nav className="flex flex-wrap items-center gap-1.5" aria-label="Teacher Navigation">
               {/* Tab 1: Quick Point Awarding (Default on open!) */}
               <button
                 type="button"
@@ -215,9 +226,13 @@ export const NavigationTabs: React.FC<NavigationTabsProps> = ({
               >
                 <Flame className="w-4 h-4 text-rose-400" />
                 <span>House Competitions Results</span>
-                {isSportsActive && (
+                {tabSettings && !tabSettings.results_enabled ? (
+                  <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-rose-950/40 text-rose-400 border border-rose-900/40">
+                    Offline
+                  </span>
+                ) : isSportsActive ? (
                   <span className="w-2 h-2 rounded-full bg-rose-500 animate-pulse" />
-                )}
+                ) : null}
               </button>
 
               {/* Tab 7: House Competitions Events */}
@@ -233,6 +248,11 @@ export const NavigationTabs: React.FC<NavigationTabsProps> = ({
               >
                 <CalendarCheck className="w-4 h-4 text-amber-500" />
                 <span>House Competitions Events</span>
+                {tabSettings && !tabSettings.events_enabled && (
+                  <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-rose-950/40 text-rose-400 border border-rose-900/40">
+                    Offline
+                  </span>
+                )}
               </button>
             </nav>
 
@@ -249,8 +269,8 @@ export const NavigationTabs: React.FC<NavigationTabsProps> = ({
   return (
     <div className="bg-[#161B22] border-b border-slate-800">
       <div className="max-w-7xl mx-auto px-3.5 sm:px-6 lg:px-8">
-        <div className="flex items-center justify-between py-2 overflow-x-auto no-scrollbar gap-2">
-          <nav className="flex items-center gap-1.5" aria-label="Admin Navigation">
+        <div className="flex flex-wrap items-center justify-between py-2 gap-2">
+          <nav className="flex flex-wrap items-center gap-1.5" aria-label="Admin Navigation">
             {/* Tab 1: Quick Point Awarding (Default on open!) */}
             <button
               type="button"
@@ -343,9 +363,13 @@ export const NavigationTabs: React.FC<NavigationTabsProps> = ({
             >
               <Flame className="w-4 h-4 text-rose-400" />
               <span>House Competitions Results</span>
-              {isSportsActive && (
+              {tabSettings && !tabSettings.results_enabled ? (
+                <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-rose-950/40 text-rose-400 border border-rose-900/40">
+                  Offline
+                </span>
+              ) : isSportsActive ? (
                 <span className="w-2 h-2 rounded-full bg-rose-500 animate-pulse" />
-              )}
+              ) : null}
             </button>
 
             {/* Tab 7: House Competitions Events */}
@@ -361,6 +385,11 @@ export const NavigationTabs: React.FC<NavigationTabsProps> = ({
             >
               <CalendarCheck className="w-4 h-4 text-amber-500" />
               <span>House Competitions Events</span>
+              {tabSettings && !tabSettings.events_enabled && (
+                <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-rose-950/40 text-rose-400 border border-rose-900/40">
+                  Offline
+                </span>
+              )}
             </button>
 
             {/* Tab 8: Admin Console */}

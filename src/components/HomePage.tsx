@@ -7,6 +7,7 @@ import {
   CurrentUser,
   Student,
   PointTransaction,
+  TabSettings,
 } from '../types';
 import { HouseTotalSummary } from '../utils/storage';
 import {
@@ -44,6 +45,7 @@ interface HomePageProps {
   leadingHouse?: House;
   leadingHousePoints?: number;
   transactions?: PointTransaction[];
+  tabSettings?: TabSettings;
   onAwardGameScore?: (
     gameId: string,
     studentId: string,
@@ -69,6 +71,7 @@ export const HomePage: React.FC<HomePageProps> = ({
   leadingHouse,
   leadingHousePoints = 0,
   transactions = [],
+  tabSettings,
   onAwardGameScore,
   onLoginTeacher,
   onLoginAdmin,
@@ -681,10 +684,16 @@ export const HomePage: React.FC<HomePageProps> = ({
             >
               <Flame className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-rose-500" />
               <span>House Results</span>
-              <span className="hidden sm:inline-flex items-center gap-1 px-1.5 py-0.2 rounded-full text-[9px] font-black uppercase tracking-wider bg-rose-500/20 text-rose-300 border border-rose-500/30">
-                <span className="w-1.5 h-1.5 rounded-full bg-rose-500 animate-pulse" />
-                LIVE
-              </span>
+              {tabSettings && !tabSettings.results_enabled ? (
+                <span className="hidden sm:inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-wider bg-rose-950/40 text-rose-400 border border-rose-900/40">
+                  Offline
+                </span>
+              ) : (
+                <span className="hidden sm:inline-flex items-center gap-1 px-1.5 py-0.2 rounded-full text-[9px] font-black uppercase tracking-wider bg-rose-500/20 text-rose-300 border border-rose-500/30">
+                  <span className="w-1.5 h-1.5 rounded-full bg-rose-500 animate-pulse" />
+                  LIVE
+                </span>
+              )}
             </button>
 
             {/* Tab 4: House Competitions Events */}
@@ -700,9 +709,15 @@ export const HomePage: React.FC<HomePageProps> = ({
             >
               <CalendarCheck className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-amber-500" />
               <span>House Events</span>
-              <span className="hidden sm:inline-flex text-[9px] font-bold px-1.5 py-0.5 rounded-md bg-slate-800 text-slate-300">
-                {sportsEvents.length}
-              </span>
+              {tabSettings && !tabSettings.events_enabled ? (
+                <span className="hidden sm:inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-wider bg-rose-950/40 text-rose-400 border border-rose-900/40">
+                  Offline
+                </span>
+              ) : (
+                <span className="hidden sm:inline-flex text-[9px] font-bold px-1.5 py-0.5 rounded-md bg-slate-800 text-slate-300">
+                  {sportsEvents.length}
+                </span>
+              )}
             </button>
           </div>
 
@@ -870,8 +885,17 @@ export const HomePage: React.FC<HomePageProps> = ({
                     onClick={() => triggerConfetti([second.house.color, '#94A3B8'])}
                     className="flex-1 min-w-[125px] sm:min-w-[170px] max-w-[210px] flex flex-col items-center cursor-pointer order-2 sm:order-1 group transition-transform hover:-translate-y-1"
                   >
-                    <div className="w-10 h-10 sm:w-14 sm:h-14 rounded-2xl bg-slate-800 border-2 border-slate-600 text-slate-300 flex items-center justify-center font-black text-sm sm:text-xl shadow-md group-hover:scale-105 transition-transform mb-2">
-                      🥈
+                    <div className="relative mb-2">
+                      <div className="w-10 h-10 sm:w-14 sm:h-14 rounded-2xl bg-slate-800 border-2 border-slate-600 text-slate-300 flex items-center justify-center font-black text-sm sm:text-xl shadow-md group-hover:scale-105 transition-transform">
+                        🥈
+                      </div>
+                      {second.house.logoUrl && (
+                        <img
+                          src={second.house.logoUrl}
+                          alt={second.house.name}
+                          className="w-6 h-6 sm:w-7 sm:h-7 rounded-full object-cover absolute -bottom-1.5 -right-1.5 border-2 border-slate-800 bg-white shadow-sm"
+                        />
+                      )}
                     </div>
                     {/* Full house name without truncation */}
                     <h4 className="font-extrabold text-white text-xs sm:text-sm text-center w-full px-1 min-h-[2.5rem] flex items-center justify-center leading-snug break-words">
@@ -912,6 +936,13 @@ export const HomePage: React.FC<HomePageProps> = ({
                       <div className="w-14 h-14 sm:w-20 sm:h-20 rounded-3xl bg-gradient-to-br from-amber-300 via-amber-400 to-amber-500 border-2 sm:border-4 border-amber-200 text-amber-950 flex items-center justify-center shadow-xl group-hover:scale-105 transition-transform">
                         <Trophy className="w-7 h-7 sm:w-10 sm:h-10 text-amber-950" />
                       </div>
+                      {leader.house.logoUrl && (
+                        <img
+                          src={leader.house.logoUrl}
+                          alt={leader.house.name}
+                          className="w-7 h-7 sm:w-9 sm:h-9 rounded-full object-cover absolute -bottom-2 -right-2 border-2 border-amber-400 bg-white shadow-md"
+                        />
+                      )}
                     </div>
                     {/* Full house name without truncation */}
                     <h4 className="font-black text-amber-300 text-sm sm:text-base text-center w-full px-1 min-h-[2.5rem] flex items-center justify-center leading-snug break-words">
@@ -951,8 +982,17 @@ export const HomePage: React.FC<HomePageProps> = ({
                     onClick={() => triggerConfetti([third.house.color, '#D97706'])}
                     className="flex-1 min-w-[125px] sm:min-w-[170px] max-w-[210px] flex flex-col items-center cursor-pointer order-3 sm:order-3 group transition-transform hover:-translate-y-1"
                   >
-                    <div className="w-10 h-10 sm:w-14 sm:h-14 rounded-2xl bg-amber-950/60 border-2 border-amber-800 text-amber-400 flex items-center justify-center font-black text-sm sm:text-xl shadow-md group-hover:scale-105 transition-transform mb-2">
-                      🥉
+                    <div className="relative mb-2">
+                      <div className="w-10 h-10 sm:w-14 sm:h-14 rounded-2xl bg-amber-950/60 border-2 border-amber-800 text-amber-400 flex items-center justify-center font-black text-sm sm:text-xl shadow-md group-hover:scale-105 transition-transform">
+                        🥉
+                      </div>
+                      {third.house.logoUrl && (
+                        <img
+                          src={third.house.logoUrl}
+                          alt={third.house.name}
+                          className="w-6 h-6 sm:w-7 sm:h-7 rounded-full object-cover absolute -bottom-1.5 -right-1.5 border-2 border-amber-950 bg-white shadow-sm"
+                        />
+                      )}
                     </div>
                     {/* Full house name without truncation */}
                     <h4 className="font-extrabold text-white text-xs sm:text-sm text-center w-full px-1 min-h-[2.5rem] flex items-center justify-center leading-snug break-words">
@@ -988,8 +1028,17 @@ export const HomePage: React.FC<HomePageProps> = ({
                     onClick={() => triggerConfetti([fourth.house.color, '#64748B'])}
                     className="flex-1 min-w-[115px] sm:min-w-[150px] max-w-[180px] flex flex-col items-center cursor-pointer order-4 sm:order-4 group transition-transform hover:-translate-y-1"
                   >
-                    <div className="w-9 h-9 sm:w-12 sm:h-12 rounded-xl bg-slate-800/90 border border-slate-700 text-slate-400 flex items-center justify-center font-bold text-xs sm:text-sm shadow-sm group-hover:scale-105 transition-transform mb-2">
-                      4th
+                    <div className="relative mb-2">
+                      <div className="w-9 h-9 sm:w-12 sm:h-12 rounded-xl bg-slate-800/90 border border-slate-700 text-slate-400 flex items-center justify-center font-bold text-xs sm:text-sm shadow-sm group-hover:scale-105 transition-transform">
+                        4th
+                      </div>
+                      {fourth.house.logoUrl && (
+                        <img
+                          src={fourth.house.logoUrl}
+                          alt={fourth.house.name}
+                          className="w-5 h-5 sm:w-6 sm:h-6 rounded-full object-cover absolute -bottom-1.5 -right-1.5 border-2 border-slate-800 bg-white shadow-sm"
+                        />
+                      )}
                     </div>
                     {/* Full house name without truncation */}
                     <h4 className="font-bold text-slate-300 text-xs sm:text-sm text-center w-full px-1 min-h-[2.5rem] flex items-center justify-center leading-snug break-words">
@@ -1138,12 +1187,23 @@ export const HomePage: React.FC<HomePageProps> = ({
                             {achiever.gradeTitle}
                           </span>
 
-                          {/* House Badge and Color */}
+                          {/* House Badge and Color / Logo */}
                           <div className="flex items-center gap-1.5 text-xs font-semibold text-slate-300 mt-2">
-                            <span
-                              className="w-2.5 h-2.5 rounded-full shrink-0 shadow-xs"
-                              style={{ backgroundColor: houseColor }}
-                            />
+                            {(() => {
+                              const mHouse = achiever.house || houses.find((h) => h.id === achiever.houseId || h.name.toLowerCase().includes(achiever.houseName.toLowerCase()));
+                              return mHouse?.logoUrl ? (
+                                <img
+                                  src={mHouse.logoUrl}
+                                  alt={achiever.houseName}
+                                  className="w-4 h-4 rounded-full object-cover shrink-0 border border-white/30 bg-white"
+                                />
+                              ) : (
+                                <span
+                                  className="w-2.5 h-2.5 rounded-full shrink-0 shadow-xs"
+                                  style={{ backgroundColor: houseColor }}
+                                />
+                              );
+                            })()}
                             <span className="truncate">{achiever.houseName}</span>
                           </div>
 
@@ -1234,12 +1294,23 @@ export const HomePage: React.FC<HomePageProps> = ({
                             {achiever.gradeTitle}
                           </span>
 
-                          {/* House Badge and Color */}
+                          {/* House Badge and Color / Logo */}
                           <div className="flex items-center gap-1.5 text-xs font-semibold text-slate-300 mt-2">
-                            <span
-                              className="w-2.5 h-2.5 rounded-full shrink-0 shadow-xs"
-                              style={{ backgroundColor: houseColor }}
-                            />
+                            {(() => {
+                              const mHouse = achiever.house || houses.find((h) => h.id === achiever.houseId || h.name.toLowerCase().includes(achiever.houseName.toLowerCase()));
+                              return mHouse?.logoUrl ? (
+                                <img
+                                  src={mHouse.logoUrl}
+                                  alt={achiever.houseName}
+                                  className="w-4 h-4 rounded-full object-cover shrink-0 border border-white/30 bg-white"
+                                />
+                              ) : (
+                                <span
+                                  className="w-2.5 h-2.5 rounded-full shrink-0 shadow-xs"
+                                  style={{ backgroundColor: houseColor }}
+                                />
+                              );
+                            })()}
                             <span className="truncate">{achiever.houseName}</span>
                           </div>
 
@@ -1452,6 +1523,7 @@ export const HomePage: React.FC<HomePageProps> = ({
             students={students}
             currentUser={currentUser}
             transactions={transactions}
+            tabSettings={tabSettings}
             hideLiveTicker={false}
             viewMode="overview"
             isReadOnly={true}
@@ -1469,6 +1541,7 @@ export const HomePage: React.FC<HomePageProps> = ({
             students={students}
             currentUser={currentUser}
             transactions={transactions}
+            tabSettings={tabSettings}
             hideLiveTicker={false}
             viewMode="cards"
             isReadOnly={true}

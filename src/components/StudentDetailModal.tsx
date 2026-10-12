@@ -85,12 +85,21 @@ export const StudentDetailModal: React.FC<StudentDetailModalProps> = ({
             </div>
           </div>
 
-          <button
-            onClick={onClose}
-            className="p-1.5 text-white/80 hover:text-white rounded-lg bg-black/10 hover:bg-black/20 transition-colors"
-          >
-            <X className="w-5 h-5" />
-          </button>
+          <div className="flex items-center gap-2">
+            {house?.logoUrl && (
+              <img
+                src={house.logoUrl}
+                alt={house.name}
+                className="w-10 h-10 rounded-xl object-contain bg-white/20 p-1 border border-white/40 shadow-xs"
+              />
+            )}
+            <button
+              onClick={onClose}
+              className="p-1.5 text-white/80 hover:text-white rounded-lg bg-black/10 hover:bg-black/20 transition-colors"
+            >
+              <X className="w-5 h-5" />
+            </button>
+          </div>
         </div>
 
         {/* Quick Points Summary Card */}
@@ -208,11 +217,22 @@ export const StudentDetailModal: React.FC<StudentDetailModalProps> = ({
                   {canManage && onDeleteTransaction && (
                     <button
                       onClick={() => {
-                        if (confirm(`Remove this point record (+${tx.amount} / -${tx.amount})?`)) {
-                          onDeleteTransaction(tx.id);
+                        try {
+                          if (
+                            typeof window !== 'undefined' &&
+                            typeof window.confirm === 'function' &&
+                            !window.confirm.toString().includes('[native code]')
+                          ) {
+                            if (!window.confirm(`Remove this point record (+${tx.amount} / -${tx.amount})?`)) {
+                              return;
+                            }
+                          }
+                        } catch {
+                          // ignore
                         }
+                        onDeleteTransaction(tx.id);
                       }}
-                      className="p-1.5 text-slate-400 hover:text-rose-600 rounded hover:bg-white transition-colors"
+                      className="p-1.5 text-slate-400 hover:text-rose-600 rounded hover:bg-white transition-colors cursor-pointer"
                       title="Undo / Delete point record"
                     >
                       <Trash2 className="w-4 h-4" />

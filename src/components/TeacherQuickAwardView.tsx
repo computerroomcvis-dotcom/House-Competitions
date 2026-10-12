@@ -34,7 +34,6 @@ interface TeacherQuickAwardViewProps {
   onAwardPoints: (txs: Omit<PointTransaction, 'id' | 'timestamp'>[]) => void;
   onUndoTransaction?: (txId: string) => void;
   onOpenFullAwardModal: (preselectedHouseId?: string, preselectedStudentId?: string) => void;
-  onOpenExport?: () => void;
 }
 
 const COMMON_REASONS = [

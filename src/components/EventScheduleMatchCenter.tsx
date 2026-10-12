@@ -5,10 +5,10 @@ import {
   Student,
   CurrentUser,
   PointTransaction,
-  EventScheduleItem,
   SportsEventHouseScore,
+  TabSettings,
+  DEFAULT_TAB_SETTINGS,
 } from '../types';
-import { DEFAULT_EVENT_SCHEDULE } from '../data/sportsScheduleData';
 import {
   Trophy,
   Flame,
@@ -20,13 +20,11 @@ import {
   Sparkles,
   Search,
   CheckCircle,
-  Download,
   Check,
   ChevronRight,
   Radio,
   Zap,
   Star,
-  Activity,
   Crown,
   Shield,
   Medal,
@@ -46,6 +44,7 @@ interface EventScheduleMatchCenterProps {
   students: Student[];
   currentUser: CurrentUser;
   transactions?: PointTransaction[];
+  tabSettings?: TabSettings;
   hideLiveTicker?: boolean;
   viewMode?: 'all' | 'overview' | 'cards';
   isReadOnly?: boolean;
@@ -66,7 +65,6 @@ interface EventScheduleMatchCenterProps {
   onToggleEventActive?: (eventId: string, isActive: boolean) => void;
   onUpdateSportsEvents?: (newEvents: SportsActivityEvent[]) => void;
   onOpenCreateEvent?: () => void;
-  onOpenExportSports?: () => void;
 }
 
 export interface StudentAthleteStats {
@@ -88,6 +86,7 @@ export const EventScheduleMatchCenter: React.FC<EventScheduleMatchCenterProps> =
   students,
   currentUser,
   transactions = [],
+  tabSettings,
   hideLiveTicker = false,
   viewMode = 'all',
   isReadOnly = false,
@@ -96,7 +95,6 @@ export const EventScheduleMatchCenter: React.FC<EventScheduleMatchCenterProps> =
   onToggleEventActive,
   onUpdateSportsEvents,
   onOpenCreateEvent,
-  onOpenExportSports,
 }) => {
   const canAward = !isReadOnly && currentUser.role === 'admin';
 
@@ -122,10 +120,6 @@ export const EventScheduleMatchCenter: React.FC<EventScheduleMatchCenterProps> =
   const [selectedGameForScoring, setSelectedGameForScoring] = useState<SportsActivityEvent | null>(
     null
   );
-
-  // Athlete Leaderboard State (replacing live feed)
-  const [athleteHouseFilter, setAthleteHouseFilter] = useState<string>('all');
-  const [athleteSearchQuery, setAthleteSearchQuery] = useState('');
 
   // Helper for high quality event card photo
   const getEventImage = (game: SportsActivityEvent): string => {
@@ -395,46 +389,21 @@ export const EventScheduleMatchCenter: React.FC<EventScheduleMatchCenterProps> =
     return stats;
   }, [sportsEvents, houses, students]);
 
-  // Top athletes by games played (filtered by house & search)
-  const filteredParticipants = useMemo(() => {
+  // Top 3 students who have participated in the most games
+  const top3Participants = useMemo(() => {
     return Object.values(athleteStatsMap)
-      .filter((a) => athleteHouseFilter === 'all' || a.houseId === athleteHouseFilter)
-      .filter((a) => {
-        if (!athleteSearchQuery.trim()) return true;
-        const q = athleteSearchQuery.toLowerCase();
-        return (
-          a.studentName.toLowerCase().includes(q) ||
-          a.grade.toLowerCase().includes(q) ||
-          a.houseName.toLowerCase().includes(q)
-        );
-      })
-      .sort((a, b) => b.gamesPlayed - a.gamesPlayed || b.gamesWon - a.gamesWon);
-  }, [athleteStatsMap, athleteHouseFilter, athleteSearchQuery]);
-
-  // Top athletes by games won (filtered by house & search)
-  const filteredWinners = useMemo(() => {
-    return Object.values(athleteStatsMap)
-      .filter((a) => athleteHouseFilter === 'all' || a.houseId === athleteHouseFilter)
-      .filter((a) => a.gamesWon > 0)
-      .filter((a) => {
-        if (!athleteSearchQuery.trim()) return true;
-        const q = athleteSearchQuery.toLowerCase();
-        return (
-          a.studentName.toLowerCase().includes(q) ||
-          a.grade.toLowerCase().includes(q) ||
-          a.houseName.toLowerCase().includes(q)
-        );
-      })
-      .sort((a, b) => b.gamesWon - a.gamesWon || b.gamesPlayed - a.gamesPlayed);
-  }, [athleteStatsMap, athleteHouseFilter, athleteSearchQuery]);
-
-  // Summary Metrics
-  const totalAppearances = useMemo(() => {
-    return Object.values(athleteStatsMap).reduce((sum, a) => sum + a.gamesPlayed, 0);
+      .filter((a) => a.gamesPlayed > 0)
+      .sort((a, b) => b.gamesPlayed - a.gamesPlayed || b.gamesWon - a.gamesWon)
+      .slice(0, 3);
   }, [athleteStatsMap]);
 
-  const topActiveStudent = filteredParticipants[0];
-  const topWinningStudent = filteredWinners[0];
+  // Top 3 students with the most wins
+  const top3Winners = useMemo(() => {
+    return Object.values(athleteStatsMap)
+      .filter((a) => a.gamesWon > 0)
+      .sort((a, b) => b.gamesWon - a.gamesWon || b.gamesPlayed - a.gamesPlayed)
+      .slice(0, 3);
+  }, [athleteStatsMap]);
 
   // Placement points helper
   const getPlacementPoints = (game: SportsActivityEvent, place: 1 | 2 | 3 | 4): number => {
@@ -527,405 +496,302 @@ export const EventScheduleMatchCenter: React.FC<EventScheduleMatchCenterProps> =
     <div id="event-schedule-match-center" className="space-y-6">
       {/* SECTIONS 1, 2, 3: TOURNAMENT OVERVIEW & ATHLETE LEADERBOARD (when viewMode is 'all' or 'overview') */}
       {viewMode !== 'cards' && (
-        <>
-          {/* 1. HERO HEADER: HOUSE COMPETITIONS */}
-          <div className="bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 rounded-3xl p-5 sm:p-7 text-white border border-slate-800 shadow-2xl relative overflow-hidden">
-            <div className="absolute top-0 right-0 w-80 h-80 bg-rose-500/10 rounded-full blur-3xl pointer-events-none" />
-            <div className="absolute bottom-0 left-1/4 w-80 h-80 bg-amber-500/10 rounded-full blur-3xl pointer-events-none" />
-
-            <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-5">
-              <div className="space-y-2 max-w-2xl">
-                <div className="flex items-center gap-2.5 flex-wrap">
-                  <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-black uppercase tracking-wider bg-rose-500 text-white shadow-md shadow-rose-500/25">
-                    <Flame className="w-3.5 h-3.5 text-white animate-pulse" />
-                    <span>SPORTS DAY &amp; HOUSE COMPETITIONS</span>
-                  </span>
-                  <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold bg-amber-400/20 text-amber-300 border border-amber-400/30">
-                    <Radio className="w-3 h-3 text-rose-400 animate-ping" />
-                    <span>LIVE UPDATES ACTIVE</span>
-                  </span>
-                </div>
-
-                <h2 className="text-2xl sm:text-3xl font-black text-white font-['Outfit'] tracking-tight">
-                  House Competitions Results
-                </h2>
-                <p className="text-xs sm:text-sm text-slate-300">
-                  Official championship log of final game results, mini-podium finishes, and athlete leaderboards.
-                </p>
+        tabSettings && !tabSettings.results_enabled ? (
+          <div
+            id="results-offline-callout-box"
+            className="bg-rose-950/20 border-2 border-rose-500/40 rounded-3xl p-6 sm:p-10 text-center space-y-4 shadow-2xl relative overflow-hidden backdrop-blur-md my-4"
+          >
+            <div className="absolute top-0 left-0 right-0 h-1.5 bg-gradient-to-r from-rose-500 via-amber-500 to-rose-500" />
+            <div className="w-16 h-16 rounded-2xl bg-rose-500/20 text-rose-400 border border-rose-500/40 flex items-center justify-center mx-auto shadow-inner">
+              <Trophy className="w-8 h-8 text-rose-400" />
+            </div>
+            <div className="space-y-2 max-w-xl mx-auto">
+              <div className="inline-flex items-center gap-2 px-3.5 py-1 rounded-full text-xs font-black uppercase tracking-wider bg-rose-500/20 text-rose-300 border border-rose-500/40">
+                <span className="w-2 h-2 rounded-full bg-rose-400 animate-pulse" />
+                <span>Results Tab Offline</span>
               </div>
-
-              {/* Quick Actions (Browse Cards, Export, Scoring) */}
-              <div className="flex items-center gap-2.5 flex-wrap shrink-0">
-                {onNavigateToEvents && (
-                  <button
-                    type="button"
-                    onClick={onNavigateToEvents}
-                    className="btn-hover-scale inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs sm:text-sm font-black bg-slate-800 hover:bg-slate-700 active:scale-95 text-amber-300 border border-amber-400/30 transition-all cursor-pointer"
-                  >
-                    <CalendarCheck className="w-4 h-4 text-amber-400" />
-                    <span>Browse Activity Cards ({sportsEvents.length}) &rarr;</span>
-                  </button>
-                )}
-
-                {canAward && (
-                  <button
-                    type="button"
-                    id="btn-open-game-scoring"
-                    onClick={() => setSelectedGameForScoring(sportsEvents[0] || null)}
-                    className="btn-hover-scale inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs sm:text-sm font-black bg-amber-400 hover:bg-amber-300 active:scale-95 text-slate-950 shadow-lg shadow-amber-400/20 transition-all cursor-pointer"
-                  >
-                    <Trophy className="w-4 h-4 text-slate-950" />
-                    <span>Score Game Placements</span>
-                  </button>
-                )}
-
-                {!isReadOnly && onOpenExportSports && (
-                  <button
-                    type="button"
-                    onClick={onOpenExportSports}
-                    className="btn-hover-scale inline-flex items-center gap-1.5 px-3.5 py-2.5 rounded-xl text-xs sm:text-sm font-bold bg-slate-800 hover:bg-slate-700 active:scale-95 text-slate-200 border border-slate-700 transition-all cursor-pointer"
-                  >
-                    <Download className="w-3.5 h-3.5 text-rose-400" />
-                    <span>Export Scorecards</span>
-                  </button>
-                )}
+              <h3 className="text-xl sm:text-2xl font-black text-white font-['Outfit'] pt-1">
+                House Competition Results Notice
+              </h3>
+              <div className="p-4 sm:p-5 rounded-2xl bg-slate-900/90 border border-rose-500/30 text-rose-100 font-medium text-sm sm:text-base leading-relaxed shadow-inner">
+                {tabSettings.results_disabled_message ||
+                  DEFAULT_TAB_SETTINGS.results_disabled_message}
               </div>
             </div>
+            {currentUser.isAdmin && (
+              <p className="text-xs text-rose-300/80 pt-2 font-semibold">
+                Admin Notice: The House Competition Results tab is currently toggled OFF in Site Settings. Results and top athlete rankings are hidden from viewers. You can re-enable it anytime in the Admin Console &gt; Site Settings.
+              </p>
+            )}
+          </div>
+        ) : (
+          <>
+            {/* 1. HERO HEADER: HOUSE COMPETITIONS */}
+            <div className="bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 rounded-3xl p-5 sm:p-7 text-white border border-slate-800 shadow-2xl relative overflow-hidden">
+              <div className="absolute top-0 right-0 w-80 h-80 bg-rose-500/10 rounded-full blur-3xl pointer-events-none" />
+              <div className="absolute bottom-0 left-1/4 w-80 h-80 bg-amber-500/10 rounded-full blur-3xl pointer-events-none" />
 
-        {/* 2. ATHLETE PARTICIPATION & WIN INDICATOR WIDGET (Replaces live feed ticker) */}
-        {!hideLiveTicker && (
-          <div className="mt-6 pt-5 border-t border-slate-800/80 space-y-4">
-            {/* Widget Header & House Filters */}
-            <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3">
-              <div className="flex items-center gap-2.5">
-                <div className="w-8 h-8 rounded-xl bg-amber-400 text-slate-950 flex items-center justify-center font-black shrink-0 shadow-md">
-                  <Activity className="w-4 h-4 text-slate-950" />
-                </div>
-                <div>
-                  <h3 className="text-sm sm:text-base font-black text-white font-['Outfit'] flex items-center gap-2">
-                    <span>Tournament Athlete Leaderboard</span>
-                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-400/20 text-amber-300 border border-amber-400/30">
-                      Participation &amp; Wins
+              <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-5">
+                <div className="space-y-2 max-w-2xl">
+                  <div className="flex items-center gap-2.5 flex-wrap">
+                    <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-black uppercase tracking-wider bg-rose-500 text-white shadow-md shadow-rose-500/25">
+                      <Flame className="w-3.5 h-3.5 text-white animate-pulse" />
+                      <span>SPORTS DAY &amp; HOUSE COMPETITIONS</span>
                     </span>
-                  </h3>
-                  <p className="text-[11px] text-slate-400">
-                    Tracking students who played the most games and won the most games by house
+                    <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold bg-amber-400/20 text-amber-300 border border-amber-400/30">
+                      <Radio className="w-3 h-3 text-rose-400 animate-ping" />
+                      <span>LIVE UPDATES ACTIVE</span>
+                    </span>
+                  </div>
+
+                  <h2 className="text-2xl sm:text-3xl font-black text-white font-['Outfit'] tracking-tight">
+                    House Competitions Results
+                  </h2>
+                  <p className="text-xs sm:text-sm text-slate-300">
+                    Official championship log of final game results, mini-podium finishes, and verified house scores.
                   </p>
                 </div>
-              </div>
 
-              {/* House Filter Pills & Search */}
-              <div className="flex items-center gap-2 flex-wrap">
-                <div className="flex items-center gap-1 bg-slate-950 p-1 rounded-xl border border-slate-800 overflow-x-auto no-scrollbar">
-                  <button
-                    type="button"
-                    onClick={() => setAthleteHouseFilter('all')}
-                    className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer ${
-                      athleteHouseFilter === 'all'
-                        ? 'bg-amber-400 text-slate-950 font-black shadow-xs'
-                        : 'text-slate-400 hover:text-white'
-                    }`}
-                  >
-                    All Houses
-                  </button>
-                  {houses.map((h) => (
+                {/* Quick Actions (Browse Cards, Scoring) */}
+                <div className="flex items-center gap-2.5 flex-wrap shrink-0">
+                  {onNavigateToEvents && (
                     <button
-                      key={h.id}
                       type="button"
-                      onClick={() => setAthleteHouseFilter(h.id)}
-                      className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
-                        athleteHouseFilter === h.id
-                          ? 'bg-slate-800 text-white border border-slate-700 shadow-xs'
-                          : 'text-slate-400 hover:text-white'
-                      }`}
+                      onClick={onNavigateToEvents}
+                      className="btn-hover-scale inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs sm:text-sm font-black bg-slate-800 hover:bg-slate-700 active:scale-95 text-amber-300 border border-amber-400/30 transition-all cursor-pointer"
                     >
-                      <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: h.color }} />
-                      <span>{h.name.replace('House of ', '')}</span>
+                      <CalendarCheck className="w-4 h-4 text-amber-400" />
+                      <span>Browse Activity Cards ({sportsEvents.length}) &rarr;</span>
                     </button>
-                  ))}
-                </div>
-
-                <div className="relative">
-                  <Search className="w-3.5 h-3.5 text-slate-500 absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
-                  <input
-                    type="text"
-                    placeholder="Find athlete..."
-                    value={athleteSearchQuery}
-                    onChange={(e) => setAthleteSearchQuery(e.target.value)}
-                    className="pl-8 pr-3 py-1 text-xs bg-slate-950 border border-slate-800 rounded-xl text-white placeholder-slate-500 focus:outline-hidden focus:border-amber-400 w-36 sm:w-44"
-                  />
-                </div>
-              </div>
-            </div>
-
-            {/* Quick Summary Metrics Badges */}
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
-              <div className="bg-slate-950/80 border border-slate-800/90 rounded-xl p-3 flex items-center gap-3">
-                <div className="w-9 h-9 rounded-xl bg-indigo-500/20 text-indigo-400 border border-indigo-500/30 flex items-center justify-center shrink-0">
-                  <Users className="w-4 h-4" />
-                </div>
-                <div className="min-w-0">
-                  <span className="text-[10px] text-slate-400 uppercase font-bold tracking-wider block">
-                    Total Match Appearances
-                  </span>
-                  <span className="text-base font-black text-white font-['Outfit']">
-                    {totalAppearances} Matches Played
-                  </span>
-                </div>
-              </div>
-
-              <div className="bg-slate-950/80 border border-slate-800/90 rounded-xl p-3 flex items-center gap-3">
-                <div className="w-9 h-9 rounded-xl bg-amber-500/20 text-amber-400 border border-amber-500/30 flex items-center justify-center shrink-0">
-                  <Flame className="w-4 h-4" />
-                </div>
-                <div className="min-w-0">
-                  <span className="text-[10px] text-slate-400 uppercase font-bold tracking-wider block">
-                    Most Active Athlete
-                  </span>
-                  <span className="text-sm font-black text-white truncate block font-['Outfit']">
-                    {topActiveStudent ? `${topActiveStudent.studentName} (${topActiveStudent.gamesPlayed} games)` : 'N/A'}
-                  </span>
-                </div>
-              </div>
-
-              <div className="bg-slate-950/80 border border-slate-800/90 rounded-xl p-3 flex items-center gap-3">
-                <div className="w-9 h-9 rounded-xl bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 flex items-center justify-center shrink-0">
-                  <Trophy className="w-4 h-4" />
-                </div>
-                <div className="min-w-0">
-                  <span className="text-[10px] text-slate-400 uppercase font-bold tracking-wider block">
-                    Top Winning Athlete
-                  </span>
-                  <span className="text-sm font-black text-white truncate block font-['Outfit']">
-                    {topWinningStudent ? `${topWinningStudent.studentName} (${topWinningStudent.gamesWon} wins)` : 'Awaiting results'}
-                  </span>
-                </div>
-              </div>
-            </div>
-
-            {/* Dual Ranking Cards (Side-by-Side: Most Games Played vs Most Games Won - Top 3 Only) */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
-              {/* Card A: Most Games Participated (Top 3) */}
-              <div className="bg-slate-950/90 border border-slate-800 rounded-2xl p-4 space-y-3 shadow-md">
-                <div className="flex items-center justify-between pb-2 border-b border-slate-800">
-                  <div className="flex items-center gap-2">
-                    <span className="text-base">🏃</span>
-                    <div>
-                      <h4 className="text-xs sm:text-sm font-black text-white uppercase tracking-wider">
-                        Most Games Participated
-                      </h4>
-                      <p className="text-[10px] text-slate-400">Top 3 athletes with highest match appearance counts</p>
-                    </div>
-                  </div>
-                  <span className="text-[11px] font-bold text-amber-400 bg-amber-400/10 border border-amber-400/20 px-2 py-0.5 rounded-md">
-                    Top 3 Athletes
-                  </span>
-                </div>
-
-                <div className="space-y-2">
-                  {filteredParticipants.length === 0 ? (
-                    <div className="p-4 text-center text-xs text-slate-500">
-                      No athletes found matching this filter.
-                    </div>
-                  ) : (
-                    filteredParticipants.slice(0, 3).map((athlete, idx) => (
-                      <div
-                        key={athlete.studentId || athlete.studentName}
-                        className="flex items-center justify-between gap-2 p-2.5 rounded-xl bg-slate-900/90 border border-slate-800/80 hover:border-slate-700 transition-all text-xs"
-                      >
-                        <div className="flex items-center gap-2.5 min-w-0">
-                          <span
-                            className={`w-6 h-6 rounded-lg flex items-center justify-center font-black text-xs shrink-0 ${
-                              idx === 0
-                                ? 'bg-amber-400 text-slate-950 shadow-sm'
-                                : idx === 1
-                                ? 'bg-slate-300 text-slate-950 shadow-sm'
-                                : 'bg-amber-700 text-white shadow-sm'
-                            }`}
-                          >
-                            {idx === 0 ? '🥇' : idx === 1 ? '🥈' : '🥉'}
-                          </span>
-
-                          <div className="min-w-0">
-                            <div className="flex items-center gap-1.5">
-                              <span className="font-extrabold text-white truncate text-xs">
-                                {athlete.studentName}
-                              </span>
-                              <span className="text-[10px] text-slate-400">({athlete.grade})</span>
-                            </div>
-                            <div className="flex items-center gap-1.5 mt-0.5">
-                              <span
-                                className="w-2 h-2 rounded-full shrink-0"
-                                style={{ backgroundColor: athlete.houseColor }}
-                              />
-                              <span className="text-[10px] font-semibold text-slate-300">
-                                {athlete.houseName}
-                              </span>
-                            </div>
-                          </div>
-                        </div>
-
-                        {/* Indicators: Games Played & Games Won */}
-                        <div className="flex items-center gap-1.5 shrink-0">
-                          <span className="px-2.5 py-1 rounded-lg text-xs font-black bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 flex items-center gap-1">
-                            <span>🎯</span>
-                            <span>{athlete.gamesPlayed} Played</span>
-                          </span>
-                          {athlete.gamesWon > 0 && (
-                            <span className="px-2 py-1 rounded-lg text-[11px] font-black bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
-                              🏆 {athlete.gamesWon}
-                            </span>
-                          )}
-                        </div>
-                      </div>
-                    ))
                   )}
-                </div>
-              </div>
 
-              {/* Card B: Most Games Won by House (Top 3) */}
-              <div className="bg-slate-950/90 border border-slate-800 rounded-2xl p-4 space-y-3 shadow-md">
-                <div className="flex items-center justify-between pb-2 border-b border-slate-800">
-                  <div className="flex items-center gap-2">
-                    <span className="text-base">🏆</span>
-                    <div>
-                      <h4 className="text-xs sm:text-sm font-black text-white uppercase tracking-wider">
-                        Most Games Won by House
-                      </h4>
-                      <p className="text-[10px] text-slate-400">Top 3 athletes with the most 1st-place match victories</p>
-                    </div>
-                  </div>
-                  <span className="text-[11px] font-bold text-amber-400 bg-amber-400/10 border border-amber-400/20 px-2 py-0.5 rounded-md">
-                    Top 3 Winners
-                  </span>
-                </div>
-
-                <div className="space-y-2">
-                  {filteredWinners.length === 0 ? (
-                    <div className="p-4 text-center text-xs text-slate-500">
-                      No game wins recorded yet. Score 1st place on game cards below to see winners!
-                    </div>
-                  ) : (
-                    filteredWinners.slice(0, 3).map((athlete, idx) => (
-                      <div
-                        key={athlete.studentId || athlete.studentName}
-                        className="flex items-center justify-between gap-2 p-2.5 rounded-xl bg-slate-900/90 border border-slate-800/80 hover:border-slate-700 transition-all text-xs"
-                      >
-                        <div className="flex items-center gap-2.5 min-w-0">
-                          <span
-                            className={`w-6 h-6 rounded-lg flex items-center justify-center font-black text-xs shrink-0 ${
-                              idx === 0
-                                ? 'bg-amber-400 text-slate-950 shadow-sm'
-                                : idx === 1
-                                ? 'bg-slate-300 text-slate-950 shadow-sm'
-                                : 'bg-amber-700 text-white shadow-sm'
-                            }`}
-                          >
-                            {idx === 0 ? '🥇' : idx === 1 ? '🥈' : '🥉'}
-                          </span>
-
-                          <div className="min-w-0">
-                            <div className="flex items-center gap-1.5">
-                              <span className="font-extrabold text-white truncate text-xs">
-                                {athlete.studentName}
-                              </span>
-                              <span className="text-[10px] text-slate-400">({athlete.grade})</span>
-                            </div>
-                            <div className="flex items-center gap-1.5 mt-0.5">
-                              <span
-                                className="w-2 h-2 rounded-full shrink-0"
-                                style={{ backgroundColor: athlete.houseColor }}
-                              />
-                              <span className="text-[10px] font-semibold text-slate-300">
-                                {athlete.houseName}
-                              </span>
-                            </div>
-                          </div>
-                        </div>
-
-                        {/* Indicators: Games Won & Games Played */}
-                        <div className="flex items-center gap-1.5 shrink-0">
-                          <span className="px-2.5 py-1 rounded-lg text-xs font-black bg-gradient-to-r from-amber-400 to-amber-500 text-slate-950 shadow-xs flex items-center gap-1">
-                            <span>🥇</span>
-                            <span>{athlete.gamesWon} Won</span>
-                          </span>
-                          <span className="px-2 py-1 rounded-lg text-[11px] font-bold bg-slate-800 text-slate-400 border border-slate-700">
-                            {athlete.gamesPlayed} played
-                          </span>
-                        </div>
-                      </div>
-                    ))
+                  {canAward && (
+                    <button
+                      type="button"
+                      id="btn-open-game-scoring"
+                      onClick={() => setSelectedGameForScoring(sportsEvents[0] || null)}
+                      className="btn-hover-scale inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs sm:text-sm font-black bg-amber-400 hover:bg-amber-300 active:scale-95 text-slate-950 shadow-lg shadow-amber-400/20 transition-all cursor-pointer"
+                    >
+                      <Trophy className="w-4 h-4 text-slate-950" />
+                      <span>Score Game Placements</span>
+                    </button>
                   )}
                 </div>
               </div>
             </div>
-          </div>
-        )}
-      </div>
 
-      {/* 3. EVENT TIMELINE SCHEDULE STRIP */}
-      <div className="bg-[#161B22] rounded-2xl border border-slate-800 p-4 sm:p-5 shadow-lg">
-        <div className="flex items-center justify-between pb-3 mb-3 border-b border-slate-800">
-          <div className="flex items-center gap-2">
-            <Calendar className="w-4 h-4 text-amber-400" />
-            <h3 className="text-sm font-black uppercase tracking-wider text-white">
-              Official Sports Day Schedule
-            </h3>
-          </div>
-          <span className="text-xs text-slate-400 font-medium">Monday, 23 February 2026</span>
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-          {DEFAULT_EVENT_SCHEDULE.map((item, idx) => {
-            const isCompleted = item.status === 'Completed';
-            const isLive = item.status === 'Live Now';
-            return (
-              <div
-                key={item.id || idx}
-                className={`p-3.5 rounded-xl border flex flex-col justify-between gap-2.5 transition-all ${
-                  isLive
-                    ? 'bg-rose-950/20 border-rose-500/50 shadow-md shadow-rose-500/10'
-                    : isCompleted
-                    ? 'bg-slate-900/80 border-emerald-500/30'
-                    : 'bg-slate-900/50 border-slate-800'
-                }`}
-              >
-                <div className="flex items-center justify-between gap-2">
-                  <div className="flex items-center gap-1.5 text-xs font-mono font-bold text-slate-300">
-                    <Clock className="w-3.5 h-3.5 text-amber-400" />
-                    <span>{item.time}</span>
-                  </div>
-
-                  <span
-                    className={`px-2 py-0.5 rounded text-[10px] font-black uppercase tracking-wider ${
-                      isLive
-                        ? 'bg-rose-500 text-white animate-pulse'
-                        : isCompleted
-                        ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
-                        : 'bg-slate-800 text-slate-400'
-                    }`}
-                  >
-                    {item.status}
-                  </span>
-                </div>
-
+            {/* 2. TOP 3 STUDENTS SHOWCASE: MOST GAMES PARTICIPATED & MOST WINS ONLY */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+              {/* CARD 1: TOP 3 STUDENTS WHO HAVE PARTICIPATED IN THE MOST GAMES */}
+              <div className="bg-[#161B22] rounded-2xl border border-slate-800 p-5 shadow-xl relative overflow-hidden flex flex-col justify-between">
+                <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-amber-500 via-rose-500 to-amber-500" />
                 <div>
-                  <h4 className="text-sm font-black text-white font-['Outfit']">{item.event_name}</h4>
-                  <div className="flex items-center gap-2 mt-1 text-[11px] text-slate-400">
-                    <span className="bg-slate-800 px-1.5 py-0.5 rounded text-slate-300 font-semibold">
-                      {item.category}
-                    </span>
-                    <span className="flex items-center gap-1">
-                      <MapPin className="w-3 h-3 text-rose-400" />
-                      {item.location}
+                  <div className="flex items-center justify-between pb-3 mb-4 border-b border-slate-800/80">
+                    <div className="flex items-center gap-2.5">
+                      <div className="w-9 h-9 rounded-xl bg-amber-500/10 border border-amber-500/30 flex items-center justify-center text-amber-400">
+                        <Flame className="w-5 h-5 text-amber-400" />
+                      </div>
+                      <div>
+                        <h3 className="text-base font-extrabold text-[#F0F6FC] font-['Outfit'] flex items-center gap-2">
+                          <span>Top 3 Students — Most Games Participated</span>
+                        </h3>
+                        <p className="text-xs text-slate-400">
+                          Athletes with highest tournament match participation
+                        </p>
+                      </div>
+                    </div>
+                    <span className="text-[10px] uppercase font-black px-2.5 py-1 rounded-full bg-amber-400/10 text-amber-300 border border-amber-400/20">
+                      Top 3
                     </span>
                   </div>
+
+                  {top3Participants.length === 0 ? (
+                    <div className="p-6 rounded-xl bg-[#0D1117] border border-slate-800/80 text-center space-y-2">
+                      <p className="text-xs text-slate-400">No student participation recorded yet.</p>
+                    </div>
+                  ) : (
+                    <div className="space-y-2.5">
+                      {top3Participants.map((athlete, idx) => {
+                        const medalConfig = [
+                          {
+                            rank: '1st',
+                            badgeBg: 'bg-amber-400/20 text-amber-300 border-amber-400/40',
+                            cardBg: 'bg-[#0D1117] border-amber-500/30 hover:border-amber-500/60',
+                            icon: <Crown className="w-4 h-4 text-amber-400 shrink-0" />,
+                          },
+                          {
+                            rank: '2nd',
+                            badgeBg: 'bg-slate-400/20 text-slate-200 border-slate-400/40',
+                            cardBg: 'bg-[#0D1117] border-slate-700/60 hover:border-slate-600',
+                            icon: <Medal className="w-4 h-4 text-slate-300 shrink-0" />,
+                          },
+                          {
+                            rank: '3rd',
+                            badgeBg: 'bg-amber-800/20 text-amber-500 border-amber-700/40',
+                            cardBg: 'bg-[#0D1117] border-amber-900/30 hover:border-amber-800/50',
+                            icon: <Medal className="w-4 h-4 text-amber-600 shrink-0" />,
+                          },
+                        ][idx] || {
+                          rank: `${idx + 1}th`,
+                          badgeBg: 'bg-slate-800 text-slate-300 border-slate-700',
+                          cardBg: 'bg-[#0D1117] border-slate-800',
+                          icon: <Medal className="w-4 h-4 text-slate-400 shrink-0" />,
+                        };
+
+                        return (
+                          <div
+                            key={`part-${athlete.studentId || athlete.studentName}-${idx}`}
+                            className={`p-3.5 rounded-xl border flex items-center justify-between gap-3 transition-all ${medalConfig.cardBg}`}
+                          >
+                            <div className="flex items-center gap-3 min-w-0">
+                              <div
+                                className={`w-8 h-8 rounded-lg flex items-center justify-center font-black text-xs shrink-0 border shadow-xs ${medalConfig.badgeBg}`}
+                              >
+                                {medalConfig.icon}
+                              </div>
+
+                              <div className="min-w-0">
+                                <div className="flex items-center gap-2 flex-wrap">
+                                  <span className="font-bold text-sm text-[#F0F6FC] truncate">
+                                    {athlete.studentName}
+                                  </span>
+                                  <span className="text-[10px] font-semibold text-slate-400 bg-slate-800/80 px-1.5 py-0.5 rounded border border-slate-700">
+                                    {athlete.grade}
+                                  </span>
+                                </div>
+                                <div className="flex items-center gap-1.5 mt-0.5">
+                                  <span
+                                    className="w-2 h-2 rounded-full shrink-0"
+                                    style={{ backgroundColor: athlete.houseColor }}
+                                  />
+                                  <span className="text-xs text-slate-300 font-medium">
+                                    {athlete.houseName}
+                                  </span>
+                                </div>
+                              </div>
+                            </div>
+
+                            <div className="text-right shrink-0">
+                              <span className="text-base font-black text-amber-400 tabular-nums block">
+                                {athlete.gamesPlayed}
+                              </span>
+                              <span className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">
+                                {athlete.gamesPlayed === 1 ? 'Game Played' : 'Games Played'}
+                              </span>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
                 </div>
               </div>
-            );
-          })}
-        </div>
-      </div>
+
+              {/* CARD 2: TOP 3 STUDENTS WITH THE MOST WINS */}
+              <div className="bg-[#161B22] rounded-2xl border border-slate-800 p-5 shadow-xl relative overflow-hidden flex flex-col justify-between">
+                <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-emerald-500 via-amber-400 to-emerald-500" />
+                <div>
+                  <div className="flex items-center justify-between pb-3 mb-4 border-b border-slate-800/80">
+                    <div className="flex items-center gap-2.5">
+                      <div className="w-9 h-9 rounded-xl bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center text-emerald-400">
+                        <Trophy className="w-5 h-5 text-emerald-400" />
+                      </div>
+                      <div>
+                        <h3 className="text-base font-extrabold text-[#F0F6FC] font-['Outfit'] flex items-center gap-2">
+                          <span>Top 3 Students — Most Wins</span>
+                        </h3>
+                        <p className="text-xs text-slate-400">
+                          Athletes with highest 1st place match victories
+                        </p>
+                      </div>
+                    </div>
+                    <span className="text-[10px] uppercase font-black px-2.5 py-1 rounded-full bg-emerald-400/10 text-emerald-300 border border-emerald-400/20">
+                      Top 3
+                    </span>
+                  </div>
+
+                  {top3Winners.length === 0 ? (
+                    <div className="p-6 rounded-xl bg-[#0D1117] border border-slate-800/80 text-center space-y-2">
+                      <p className="text-xs text-slate-400">No match victories recorded yet.</p>
+                    </div>
+                  ) : (
+                    <div className="space-y-2.5">
+                      {top3Winners.map((athlete, idx) => {
+                        const medalConfig = [
+                          {
+                            rank: '1st',
+                            badgeBg: 'bg-amber-400/20 text-amber-300 border-amber-400/40',
+                            cardBg: 'bg-[#0D1117] border-amber-500/30 hover:border-amber-500/60',
+                            icon: <Crown className="w-4 h-4 text-amber-400 shrink-0" />,
+                          },
+                          {
+                            rank: '2nd',
+                            badgeBg: 'bg-slate-400/20 text-slate-200 border-slate-400/40',
+                            cardBg: 'bg-[#0D1117] border-slate-700/60 hover:border-slate-600',
+                            icon: <Medal className="w-4 h-4 text-slate-300 shrink-0" />,
+                          },
+                          {
+                            rank: '3rd',
+                            badgeBg: 'bg-amber-800/20 text-amber-500 border-amber-700/40',
+                            cardBg: 'bg-[#0D1117] border-amber-900/30 hover:border-amber-800/50',
+                            icon: <Medal className="w-4 h-4 text-amber-600 shrink-0" />,
+                          },
+                        ][idx] || {
+                          rank: `${idx + 1}th`,
+                          badgeBg: 'bg-slate-800 text-slate-300 border-slate-700',
+                          cardBg: 'bg-[#0D1117] border-slate-800',
+                          icon: <Medal className="w-4 h-4 text-slate-400 shrink-0" />,
+                        };
+
+                        return (
+                          <div
+                            key={`win-${athlete.studentId || athlete.studentName}-${idx}`}
+                            className={`p-3.5 rounded-xl border flex items-center justify-between gap-3 transition-all ${medalConfig.cardBg}`}
+                          >
+                            <div className="flex items-center gap-3 min-w-0">
+                              <div
+                                className={`w-8 h-8 rounded-lg flex items-center justify-center font-black text-xs shrink-0 border shadow-xs ${medalConfig.badgeBg}`}
+                              >
+                                {medalConfig.icon}
+                              </div>
+
+                              <div className="min-w-0">
+                                <div className="flex items-center gap-2 flex-wrap">
+                                  <span className="font-bold text-sm text-[#F0F6FC] truncate">
+                                    {athlete.studentName}
+                                  </span>
+                                  <span className="text-[10px] font-semibold text-slate-400 bg-slate-800/80 px-1.5 py-0.5 rounded border border-slate-700">
+                                    {athlete.grade}
+                                  </span>
+                                </div>
+                                <div className="flex items-center gap-1.5 mt-0.5">
+                                  <span
+                                    className="w-2 h-2 rounded-full shrink-0"
+                                    style={{ backgroundColor: athlete.houseColor }}
+                                  />
+                                  <span className="text-xs text-slate-300 font-medium">
+                                    {athlete.houseName}
+                                  </span>
+                                </div>
+                              </div>
+                            </div>
+
+                            <div className="text-right shrink-0">
+                              <span className="text-base font-black text-emerald-400 tabular-nums block">
+                                {athlete.gamesWon}
+                              </span>
+                              <span className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">
+                                {athlete.gamesWon === 1 ? 'Game Won' : 'Games Won'}
+                              </span>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
 
       {/* 4. ALL-GAMES FINAL RESULTS FEED (Official Championship Log) */}
       <div className="space-y-4">
@@ -1143,8 +1009,9 @@ export const EventScheduleMatchCenter: React.FC<EventScheduleMatchCenterProps> =
           </button>
         </div>
       )}
-    </>
-  )}
+          </>
+        )
+      )}
 
   {/* SECTIONS 4 & 5: THE ACTUAL HOUSE ACTIVITY CARDS (when viewMode is 'all' or 'cards') */}
   {viewMode !== 'overview' && (
@@ -1174,7 +1041,7 @@ export const EventScheduleMatchCenter: React.FC<EventScheduleMatchCenterProps> =
               </p>
             </div>
 
-            {/* Quick Actions (Create Card, Export Newsletter) */}
+            {/* Quick Actions (Create Card) */}
             <div className="flex items-center gap-2.5 flex-wrap shrink-0">
               {canAward && (
                 <button
@@ -1190,25 +1057,44 @@ export const EventScheduleMatchCenter: React.FC<EventScheduleMatchCenterProps> =
                   <span>+ Create Game Card</span>
                 </button>
               )}
-
-              {!isReadOnly && onOpenExportSports && (
-                <button
-                  type="button"
-                  id="btn-header-export-newsletter"
-                  onClick={onOpenExportSports}
-                  className="btn-hover-scale inline-flex items-center gap-1.5 px-3.5 py-2.5 rounded-xl text-xs sm:text-sm font-bold bg-slate-800 hover:bg-slate-700 active:scale-95 text-slate-200 border border-slate-700 transition-all cursor-pointer"
-                >
-                  <Download className="w-3.5 h-3.5 text-rose-400" />
-                  <span>Export Newsletter</span>
-                </button>
-              )}
             </div>
           </div>
         </div>
       )}
 
-      {/* 4. CONTROLS & FILTER BAR */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-slate-900/80 p-3 rounded-2xl border border-slate-800">
+      {/* 4. OFFLINE CALLOUT BOX (When Events Tab is toggled OFF by Admin) OR LIVE GAME CARDS */}
+      {tabSettings && !tabSettings.events_enabled ? (
+        <div
+          id="events-offline-callout-box"
+          className="bg-amber-950/20 border-2 border-amber-500/40 rounded-3xl p-6 sm:p-10 text-center space-y-4 shadow-2xl relative overflow-hidden backdrop-blur-md my-4"
+        >
+          <div className="absolute top-0 left-0 right-0 h-1.5 bg-gradient-to-r from-amber-500 via-rose-500 to-amber-500" />
+          <div className="w-16 h-16 rounded-2xl bg-amber-500/20 text-amber-400 border border-amber-500/40 flex items-center justify-center mx-auto shadow-inner">
+            <CalendarCheck className="w-8 h-8 text-amber-400" />
+          </div>
+          <div className="space-y-2 max-w-xl mx-auto">
+            <div className="inline-flex items-center gap-2 px-3.5 py-1 rounded-full text-xs font-black uppercase tracking-wider bg-amber-500/20 text-amber-300 border border-amber-500/40">
+              <span className="w-2 h-2 rounded-full bg-amber-400 animate-pulse" />
+              <span>Events Tab Offline</span>
+            </div>
+            <h3 className="text-xl sm:text-2xl font-black text-white font-['Outfit'] pt-1">
+              House Competitions Notice
+            </h3>
+            <div className="p-4 sm:p-5 rounded-2xl bg-slate-900/90 border border-amber-500/30 text-amber-100 font-medium text-sm sm:text-base leading-relaxed shadow-inner">
+              {tabSettings.events_disabled_message ||
+                DEFAULT_TAB_SETTINGS.events_disabled_message}
+            </div>
+          </div>
+          {currentUser.isAdmin && (
+            <p className="text-xs text-amber-300/80 pt-2 font-semibold">
+              Admin Notice: The Events tab is currently toggled OFF in Site Settings. Live cards are hidden from viewers. You can re-enable it anytime in the Admin Console &gt; Site Settings.
+            </p>
+          )}
+        </div>
+      ) : (
+        <>
+          {/* 4. CONTROLS & FILTER BAR */}
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-slate-900/80 p-3 rounded-2xl border border-slate-800">
         <div className="flex items-center gap-1.5 p-1 bg-slate-950 border border-slate-800 rounded-xl overflow-x-auto no-scrollbar">
           {(['all', 'live', 'upcoming', 'completed'] as const).map((filter) => (
             <button
@@ -1248,7 +1134,7 @@ export const EventScheduleMatchCenter: React.FC<EventScheduleMatchCenterProps> =
                 Active &amp; Upcoming Game Cards ({filteredGames.length})
               </h3>
               <p className="text-xs text-slate-400">
-                Generated by Admin Game Card Creator &bull; Primary export source for Parent Newsletters
+                Official game cards with rosters, rules, and point values
               </p>
             </div>
           </div>
@@ -1552,6 +1438,8 @@ export const EventScheduleMatchCenter: React.FC<EventScheduleMatchCenterProps> =
           })}
         </div>
       </div>
+      </>
+    )}
     </>
   )}
 

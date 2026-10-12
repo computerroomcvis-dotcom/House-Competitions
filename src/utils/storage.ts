@@ -7,6 +7,8 @@ import {
   SportsActivityEvent,
   CurrentUser,
   GradeLevel,
+  TabSettings,
+  DEFAULT_TAB_SETTINGS,
 } from '../types';
 import {
   INITIAL_HOUSES,
@@ -24,6 +26,8 @@ const STORAGE_KEYS = {
   ADMINS: 'crestview_house_points_admins_v7',
   TRANSACTIONS: 'crestview_house_points_transactions_v7',
   SPORTS_EVENTS: 'crestview_house_points_sports_events_v7',
+  EVENTS_TAB_GAME_CARDS: 'events_tab_game_cards',
+  TAB_SETTINGS: 'tab_settings',
   CURRENT_USER: 'crestview_house_points_current_user_v7',
   ADMIN_PASSWORD: 'crestview_house_points_admin_password_v7',
 };
@@ -37,7 +41,42 @@ export interface StorageData {
   adminUsers: AdminUser[];
   transactions: PointTransaction[];
   sportsEvents: SportsActivityEvent[];
+  tabSettings: TabSettings;
   adminPassword: string;
+}
+
+export function loadTabSettings(): TabSettings {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEYS.TAB_SETTINGS);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      return {
+        events_enabled:
+          typeof parsed.events_enabled === 'boolean'
+            ? parsed.events_enabled
+            : DEFAULT_TAB_SETTINGS.events_enabled,
+        events_disabled_message:
+          typeof parsed.events_disabled_message === 'string' && parsed.events_disabled_message.trim()
+            ? parsed.events_disabled_message
+            : DEFAULT_TAB_SETTINGS.events_disabled_message,
+        results_enabled:
+          typeof parsed.results_enabled === 'boolean'
+            ? parsed.results_enabled
+            : DEFAULT_TAB_SETTINGS.results_enabled,
+        results_disabled_message:
+          typeof parsed.results_disabled_message === 'string' && parsed.results_disabled_message.trim()
+            ? parsed.results_disabled_message
+            : DEFAULT_TAB_SETTINGS.results_disabled_message,
+      };
+    }
+  } catch (err) {
+    console.warn('Error reading tab settings from localStorage:', err);
+  }
+  return { ...DEFAULT_TAB_SETTINGS };
+}
+
+export function saveTabSettings(settings: TabSettings): void {
+  localStorage.setItem(STORAGE_KEYS.TAB_SETTINGS, JSON.stringify(settings));
 }
 
 export function loadInitialData(): StorageData {
@@ -47,10 +86,13 @@ export function loadInitialData(): StorageData {
     const rawTeachers = localStorage.getItem(STORAGE_KEYS.TEACHERS);
     const rawAdmins = localStorage.getItem(STORAGE_KEYS.ADMINS);
     const rawTransactions = localStorage.getItem(STORAGE_KEYS.TRANSACTIONS);
-    const rawSports = localStorage.getItem(STORAGE_KEYS.SPORTS_EVENTS);
+    const rawSports =
+      localStorage.getItem(STORAGE_KEYS.EVENTS_TAB_GAME_CARDS) ||
+      localStorage.getItem(STORAGE_KEYS.SPORTS_EVENTS);
     const rawAdminPass = localStorage.getItem(STORAGE_KEYS.ADMIN_PASSWORD);
+    const loadedTabSettings = loadTabSettings();
 
-    // Ensure house colors, mottos, mascots, and handbook descriptions are always synchronized
+    // Ensure house colors, mottos, mascots, logos, and handbook descriptions are always synchronized
     let loadedHouses: House[] = INITIAL_HOUSES;
     if (rawHouses) {
       try {
@@ -60,6 +102,8 @@ export function loadInitialData(): StorageData {
           return {
             ...initH,
             ...stored,
+            // Preserve user-updated house logoUrl or fallback to official default
+            logoUrl: stored?.logoUrl || initH.logoUrl,
             // Strictly enforce official handbook colors and attributes
             color: initH.color,
             lightColor: initH.lightColor,
@@ -85,26 +129,8 @@ export function loadInitialData(): StorageData {
     if (rawSports) {
       try {
         const stored = JSON.parse(rawSports) as SportsActivityEvent[];
-        // Map stored scores/custom edits to the handbook activities
-        loadedSports = INITIAL_SPORTS_EVENTS.map((initEvent) => {
-          const match = stored.find((s) => s.id === initEvent.id);
-          if (!match) return initEvent;
-          return {
-            ...initEvent,
-            isActive: match.isActive !== undefined ? match.isActive : initEvent.isActive,
-            scores: match.scores && match.scores.length > 0 ? match.scores : initEvent.scores,
-            participatingStudentIds:
-              match.participatingStudentIds && match.participatingStudentIds.length > 0
-                ? match.participatingStudentIds
-                : initEvent.participatingStudentIds,
-            imageUrl: match.imageUrl || initEvent.imageUrl,
-          };
-        });
-        // Keep any newly created custom events added by teachers/admins
-        const officialIds = new Set(INITIAL_SPORTS_EVENTS.map((e) => e.id));
-        const customEvents = stored.filter((s) => !officialIds.has(s.id));
-        if (customEvents.length > 0) {
-          loadedSports = [...loadedSports, ...customEvents];
+        if (Array.isArray(stored)) {
+          loadedSports = stored;
         }
       } catch {
         loadedSports = INITIAL_SPORTS_EVENTS;
@@ -143,6 +169,7 @@ export function loadInitialData(): StorageData {
       adminUsers: loadedAdmins,
       transactions: rawTransactions ? JSON.parse(rawTransactions) : INITIAL_TRANSACTIONS,
       sportsEvents: loadedSports,
+      tabSettings: loadedTabSettings,
       adminPassword: rawAdminPass || DEFAULT_ADMIN_PASSWORD,
     };
   } catch (err) {
@@ -154,6 +181,7 @@ export function loadInitialData(): StorageData {
       adminUsers: INITIAL_ADMINS,
       transactions: INITIAL_TRANSACTIONS,
       sportsEvents: INITIAL_SPORTS_EVENTS,
+      tabSettings: { ...DEFAULT_TAB_SETTINGS },
       adminPassword: DEFAULT_ADMIN_PASSWORD,
     };
   }
@@ -181,6 +209,7 @@ export function saveTransactions(transactions: PointTransaction[]): void {
 
 export function saveSportsEvents(events: SportsActivityEvent[]): void {
   localStorage.setItem(STORAGE_KEYS.SPORTS_EVENTS, JSON.stringify(events));
+  localStorage.setItem(STORAGE_KEYS.EVENTS_TAB_GAME_CARDS, JSON.stringify(events));
 }
 
 export function saveAdminPassword(password: string): void {
@@ -215,6 +244,7 @@ export function resetAllToDefaults(): StorageData {
   saveAdminUsers(INITIAL_ADMINS);
   saveTransactions(INITIAL_TRANSACTIONS);
   saveSportsEvents(INITIAL_SPORTS_EVENTS);
+  saveTabSettings(DEFAULT_TAB_SETTINGS);
   saveAdminPassword(DEFAULT_ADMIN_PASSWORD);
   saveCurrentUser({
     role: 'admin',
@@ -228,6 +258,7 @@ export function resetAllToDefaults(): StorageData {
     adminUsers: INITIAL_ADMINS,
     transactions: INITIAL_TRANSACTIONS,
     sportsEvents: INITIAL_SPORTS_EVENTS,
+    tabSettings: { ...DEFAULT_TAB_SETTINGS },
     adminPassword: DEFAULT_ADMIN_PASSWORD,
   };
 }

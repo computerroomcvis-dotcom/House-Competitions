@@ -8,6 +8,7 @@ import {
 } from '../types';
 import { OFFICIAL_HANDBOOK_ACTIVITIES } from './sportsHandbookActivities';
 import { FEATURED_SPORTS_GAMES } from './sportsScheduleData';
+import { DEFAULT_HOUSE_LOGOS } from './defaultHouseLogos';
 
 // The 4 Official Crestview Houses (Official Handbook Edition)
 export const INITIAL_HOUSES: House[] = [
@@ -21,6 +22,7 @@ export const INITIAL_HOUSES: House[] = [
     mascot: 'Mighty Elephant',
     motto: 'Wisdom, Patience, and Grace',
     iconName: 'Shield',
+    logoUrl: DEFAULT_HOUSE_LOGOS['house-earthshakers'],
     officialColors: ['Green', 'Brown', 'Gray'],
     colorHexList: ['#12B76A', '#78350F', '#6B7280'],
     colorDescription:
@@ -41,6 +43,7 @@ export const INITIAL_HOUSES: House[] = [
     mascot: 'Agile Ibex',
     motto: 'Strength, Perseverance, and Unity',
     iconName: 'Flame',
+    logoUrl: DEFAULT_HOUSE_LOGOS['house-mountainhearts'],
     officialColors: ['Orange', 'Yellow', 'White'],
     colorHexList: ['#F76808', '#EAB308', '#F8FAFC'],
     colorDescription:
@@ -61,6 +64,7 @@ export const INITIAL_HOUSES: House[] = [
     mascot: 'Majestic Eagle',
     motto: 'Freedom, Vision, and Mastery',
     iconName: 'Zap',
+    logoUrl: DEFAULT_HOUSE_LOGOS['house-stormchasers'],
     officialColors: ['Blue', 'Maroon', 'Black'],
     colorHexList: ['#2E90FA', '#881337', '#0F172A'],
     colorDescription:
@@ -81,6 +85,7 @@ export const INITIAL_HOUSES: House[] = [
     mascot: 'Spirited Horse',
     motto: 'Speed, Agility, and Adaptability',
     iconName: 'Crown',
+    logoUrl: DEFAULT_HOUSE_LOGOS['house-thunderhooves'],
     officialColors: ['Purple', 'Pink', 'Cream'],
     colorHexList: ['#7A5AF8', '#EC4899', '#FEF3C7'],
     colorDescription:

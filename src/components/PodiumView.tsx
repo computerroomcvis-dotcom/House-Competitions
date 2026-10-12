@@ -66,8 +66,17 @@ export const PodiumView: React.FC<PodiumViewProps> = ({
               onClick={() => onFilterHouse && onFilterHouse(second.house.id)}
               className="flex-1 min-w-[125px] sm:min-w-[170px] max-w-[210px] flex flex-col items-center cursor-pointer order-2 sm:order-1 group transition-transform hover:-translate-y-1"
             >
-              <div className="w-10 h-10 sm:w-14 sm:h-14 rounded-2xl bg-slate-800 border-2 border-slate-600 text-slate-300 flex items-center justify-center font-black text-sm sm:text-xl shadow-md group-hover:scale-105 transition-transform mb-2">
-                🥈
+              <div className="relative mb-2">
+                <div className="w-10 h-10 sm:w-14 sm:h-14 rounded-2xl bg-slate-800 border-2 border-slate-600 text-slate-300 flex items-center justify-center font-black text-sm sm:text-xl shadow-md group-hover:scale-105 transition-transform">
+                  🥈
+                </div>
+                {second.house.logoUrl && (
+                  <img
+                    src={second.house.logoUrl}
+                    alt={second.house.name}
+                    className="w-6 h-6 sm:w-7 sm:h-7 rounded-full object-cover absolute -bottom-1.5 -right-1.5 border-2 border-slate-800 bg-white shadow-sm"
+                  />
+                )}
               </div>
               <h3 className="font-extrabold text-white text-xs sm:text-sm text-center w-full px-1 min-h-[2.5rem] flex items-center justify-center leading-snug break-words">
                 {second.house.name}
@@ -102,6 +111,13 @@ export const PodiumView: React.FC<PodiumViewProps> = ({
                 <div className="w-14 h-14 sm:w-20 sm:h-20 rounded-3xl bg-gradient-to-br from-amber-300 via-amber-400 to-amber-500 border-2 sm:border-4 border-amber-200 text-amber-950 flex items-center justify-center shadow-xl group-hover:scale-105 transition-transform">
                   <Trophy className="w-7 h-7 sm:w-10 sm:h-10 text-amber-950" />
                 </div>
+                {leader.house.logoUrl && (
+                  <img
+                    src={leader.house.logoUrl}
+                    alt={leader.house.name}
+                    className="w-7 h-7 sm:w-9 sm:h-9 rounded-full object-cover absolute -bottom-2 -right-2 border-2 border-amber-400 bg-white shadow-md"
+                  />
+                )}
               </div>
               <h3 className="font-black text-amber-300 text-sm sm:text-base text-center w-full px-1 min-h-[2.5rem] flex items-center justify-center leading-snug break-words">
                 {leader.house.name}
@@ -137,8 +153,17 @@ export const PodiumView: React.FC<PodiumViewProps> = ({
               onClick={() => onFilterHouse && onFilterHouse(third.house.id)}
               className="flex-1 min-w-[125px] sm:min-w-[170px] max-w-[210px] flex flex-col items-center cursor-pointer order-3 sm:order-3 group transition-transform hover:-translate-y-1"
             >
-              <div className="w-10 h-10 sm:w-14 sm:h-14 rounded-2xl bg-amber-950/60 border-2 border-amber-800 text-amber-400 flex items-center justify-center font-black text-sm sm:text-xl shadow-md group-hover:scale-105 transition-transform mb-2">
-                🥉
+              <div className="relative mb-2">
+                <div className="w-10 h-10 sm:w-14 sm:h-14 rounded-2xl bg-amber-950/60 border-2 border-amber-800 text-amber-400 flex items-center justify-center font-black text-sm sm:text-xl shadow-md group-hover:scale-105 transition-transform">
+                  🥉
+                </div>
+                {third.house.logoUrl && (
+                  <img
+                    src={third.house.logoUrl}
+                    alt={third.house.name}
+                    className="w-6 h-6 sm:w-7 sm:h-7 rounded-full object-cover absolute -bottom-1.5 -right-1.5 border-2 border-amber-950 bg-white shadow-sm"
+                  />
+                )}
               </div>
               <h3 className="font-extrabold text-white text-xs sm:text-sm text-center w-full px-1 min-h-[2.5rem] flex items-center justify-center leading-snug break-words">
                 {third.house.name}
@@ -168,8 +193,17 @@ export const PodiumView: React.FC<PodiumViewProps> = ({
               onClick={() => onFilterHouse && onFilterHouse(fourth.house.id)}
               className="flex-1 min-w-[115px] sm:min-w-[150px] max-w-[180px] flex flex-col items-center cursor-pointer order-4 sm:order-4 group transition-transform hover:-translate-y-1"
             >
-              <div className="w-9 h-9 sm:w-12 sm:h-12 rounded-xl bg-slate-800/90 border border-slate-700 text-slate-400 flex items-center justify-center font-bold text-xs sm:text-sm shadow-sm group-hover:scale-105 transition-transform mb-2">
-                4th
+              <div className="relative mb-2">
+                <div className="w-9 h-9 sm:w-12 sm:h-12 rounded-xl bg-slate-800/90 border border-slate-700 text-slate-400 flex items-center justify-center font-bold text-xs sm:text-sm shadow-sm group-hover:scale-105 transition-transform">
+                  4th
+                </div>
+                {fourth.house.logoUrl && (
+                  <img
+                    src={fourth.house.logoUrl}
+                    alt={fourth.house.name}
+                    className="w-5 h-5 sm:w-6 sm:h-6 rounded-full object-cover absolute -bottom-1.5 -right-1.5 border-2 border-slate-800 bg-white shadow-sm"
+                  />
+                )}
               </div>
               <h3 className="font-bold text-slate-300 text-xs sm:text-sm text-center w-full px-1 min-h-[2.5rem] flex items-center justify-center leading-snug break-words">
                 {fourth.house.name}

@@ -433,6 +433,13 @@ export const StudentTable: React.FC<StudentTableProps> = ({
                           className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-bold text-white shadow-2xs"
                           style={{ backgroundColor: house.color }}
                         >
+                          {house.logoUrl && (
+                            <img
+                              src={house.logoUrl}
+                              alt={house.name}
+                              className="w-3.5 h-3.5 rounded-full object-cover shrink-0 bg-white"
+                            />
+                          )}
                           <span className="truncate">{house.name}</span>
                         </span>
                       ) : (

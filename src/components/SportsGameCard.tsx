@@ -32,6 +32,7 @@ interface SportsGameCardProps {
   onEditGame: (event: SportsActivityEvent) => void;
   onDeleteGame?: (eventId: string, title: string) => void;
   onUpdateEventImage?: (eventId: string, imageUrl: string) => void;
+  hideLiveScores?: boolean;
 }
 
 export const SportsGameCard: React.FC<SportsGameCardProps> = ({
@@ -44,6 +45,7 @@ export const SportsGameCard: React.FC<SportsGameCardProps> = ({
   onEditGame,
   onDeleteGame,
   onUpdateEventImage,
+  hideLiveScores = false,
 }) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const canEdit = currentUser.role === 'teacher' || currentUser.role === 'admin';
@@ -315,7 +317,7 @@ export const SportsGameCard: React.FC<SportsGameCardProps> = ({
             </div>
 
             {/* Staff Score Editor Button */}
-            {canEdit && (
+            {canEdit && !hideLiveScores && (
               <div>
                 {!isEditingScores ? (
                   <button
@@ -390,8 +392,8 @@ export const SportsGameCard: React.FC<SportsGameCardProps> = ({
             </p>
           )}
 
-          {/* Current / Live Event Scores */}
-          {!isEditingScores ? (
+          {/* Current / Live Event Scores (hidden in House Competitions Events) */}
+          {!hideLiveScores && (!isEditingScores ? (
             <div className="pt-2">
               <span className="text-[11px] font-extrabold uppercase tracking-wider text-slate-400 block mb-2">
                 Live Game Points Earned:
@@ -403,12 +405,20 @@ export const SportsGameCard: React.FC<SportsGameCardProps> = ({
                     className="p-2.5 rounded-xl border border-slate-800 bg-[#161B22] flex items-center justify-between shadow-xs"
                   >
                     <div className="flex items-center gap-2">
-                      <span
-                        className="w-5 h-5 rounded-full text-white text-[10px] font-black flex items-center justify-center"
-                        style={{ backgroundColor: item.house.color }}
-                      >
-                        #{idx + 1}
-                      </span>
+                      {item.house.logoUrl ? (
+                        <img
+                          src={item.house.logoUrl}
+                          alt={item.house.name}
+                          className="w-5 h-5 rounded-full object-cover shrink-0 border border-slate-700 bg-white"
+                        />
+                      ) : (
+                        <span
+                          className="w-5 h-5 rounded-full text-white text-[10px] font-black flex items-center justify-center shrink-0"
+                          style={{ backgroundColor: item.house.color }}
+                        >
+                          #{idx + 1}
+                        </span>
+                      )}
                       <span className="text-xs font-bold text-white truncate max-w-[80px]">
                         {item.house.name}
                       </span>
@@ -485,7 +495,7 @@ export const SportsGameCard: React.FC<SportsGameCardProps> = ({
                 </button>
               </div>
             </div>
-          )}
+          ))}
         </div>
 
         {/* 4. THE RULES OF THE GAME */}
@@ -603,10 +613,18 @@ export const SportsGameCard: React.FC<SportsGameCardProps> = ({
                     {/* House Header */}
                     <div className="flex items-center justify-between pb-1 border-b border-slate-800/80">
                       <div className="flex items-center gap-1.5 min-w-0">
-                        <span
-                          className="w-2.5 h-2.5 rounded-full shrink-0"
-                          style={{ backgroundColor: h.color }}
-                        />
+                        {h.logoUrl ? (
+                          <img
+                            src={h.logoUrl}
+                            alt={h.name}
+                            className="w-4 h-4 rounded-full object-cover shrink-0 border border-white/20 bg-white"
+                          />
+                        ) : (
+                          <span
+                            className="w-2.5 h-2.5 rounded-full shrink-0"
+                            style={{ backgroundColor: h.color }}
+                          />
+                        )}
                         <span className="text-xs font-black text-white truncate">
                           {h.name}
                         </span>

@@ -253,10 +253,18 @@ export const HouseLeaderboard: React.FC<HouseLeaderboardProps> = ({
                 <div className="flex items-start justify-between gap-2 mt-1">
                   <div className="flex items-center gap-2.5 min-w-0">
                     <div
-                      className="w-10 h-10 rounded-xl flex items-center justify-center text-white shadow-xs shrink-0"
+                      className="w-10 h-10 rounded-xl flex items-center justify-center text-white shadow-xs shrink-0 overflow-hidden"
                       style={{ backgroundColor: house.color }}
                     >
-                      <IconComp className="w-5 h-5" />
+                      {house.logoUrl ? (
+                        <img
+                          src={house.logoUrl}
+                          alt={house.name}
+                          className="w-full h-full object-contain p-0.5"
+                        />
+                      ) : (
+                        <IconComp className="w-5 h-5" />
+                      )}
                     </div>
                     <div className="min-w-0">
                       <h3 className="text-base font-bold text-white leading-snug truncate">

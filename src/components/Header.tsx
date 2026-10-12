@@ -5,11 +5,9 @@ import {
   GraduationCap,
   Shield,
   Home,
-  Download,
   Trophy,
 } from 'lucide-react';
 import { AnimatedCounter } from './AnimatedCounter';
-import { ExportNewsletterDropdown } from './ExportNewsletterDropdown';
 
 interface HeaderProps {
   currentUser: CurrentUser;
@@ -21,7 +19,6 @@ interface HeaderProps {
   onOpenTeacherProfile?: () => void;
   onOpenAdmin?: () => void;
   onOpenHomePage?: () => void;
-  onOpenExport?: () => void;
   leadingHouseName?: string;
   leadingHousePoints?: number;
   isSportsActive?: boolean;
@@ -36,7 +33,6 @@ export const Header: React.FC<HeaderProps> = ({
   onOpenTeacherProfile,
   onOpenAdmin,
   onOpenHomePage,
-  onOpenExport,
 }) => {
   return (
     <header className="bg-[#161B22] border-b border-slate-800 sticky top-0 z-30 shadow-lg text-slate-100">
@@ -109,16 +105,8 @@ export const Header: React.FC<HeaderProps> = ({
             />
           </div>
 
-          {/* Right: Consolidated Primary Export Action & Auth Controls */}
+          {/* Right: Auth Controls */}
           <div className="flex items-center gap-2 sm:gap-2.5 shrink-0">
-            {/* Primary Action: 5-Format "Export Newsletter" Dropdown */}
-            {onOpenExport && (
-              <ExportNewsletterDropdown
-                onOpenModal={onOpenExport}
-                idPrefix="header"
-              />
-            )}
-
             {/* 1. TEACHER LOGGED IN */}
             {currentUser.role === 'teacher' && currentUser.teacher && (
               <>
